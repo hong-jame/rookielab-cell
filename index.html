@@ -687,6 +687,16 @@ table.dat td.l{text-align:left}
   opacity:0;transform:translateY(-8px) scale(.94);transition:opacity .16s,transform .18s cubic-bezier(.3,1.5,.5,1);
 }
 #say.in{opacity:1;transform:none}
+/* 붙는 귀 — sayCorner 가 무대에서 가장 빈 귀를 골라 data-at 으로 적어 준다 */
+#say[data-at="tr"]{right:10px;left:auto;top:10px;bottom:auto}
+#say[data-at="tl"]{left:10px;right:auto;top:10px;bottom:auto}
+#say[data-at="br"]{right:10px;left:auto;bottom:10px;top:auto}
+#say[data-at="bl"]{left:10px;right:auto;bottom:10px;top:auto}
+/* 왼쪽에 붙으면 얼굴도 왼쪽으로 옮기고 꼬리를 반대로 — 얼굴이 무대 쪽을 안 가린다 */
+#say[data-at="tl"] .f,#say[data-at="bl"] .f{order:1}
+#say[data-at="tl"] .b,#say[data-at="bl"] .b{order:2}
+#say[data-at="tl"] .b::after,#say[data-at="bl"] .b::after{
+  right:auto;left:-13px;border-left-color:transparent;border-right-color:#181322}
 #say .f{
   flex:0 0 auto;width:46px;height:46px;order:2;
   border:3px solid #181322;border-radius:12px;overflow:hidden;background:#4cc9f0;box-shadow:3px 3px 0 #181322;
@@ -704,6 +714,10 @@ table.dat td.l{text-align:left}
 #say.bad .f{background:#ff5c5c}
 @media (max-width:620px){
   #say{max-width:82%;top:8px;right:8px}
+  #say[data-at="tr"]{right:8px;top:8px}
+  #say[data-at="tl"]{left:8px;top:8px}
+  #say[data-at="br"]{right:8px;bottom:8px}
+  #say[data-at="bl"]{left:8px;bottom:8px}
   #say .b{font-size:13px;padding:5px 9px 6px}
   #say .f{width:40px;height:40px}
 }
@@ -1905,6 +1919,47 @@ function load() {
   if (!D._ans) D._ans = {};
 }
 
+/* 무대 안 말풍선을 어느 귀에 붙일지 고른다.
+   말풍선 크기만 한 상자를 네 귀에서 떠 칠해진 화소 비율을 세고 **가장 빈 귀**를 고른다.
+   같은 수법을 검사(`hintEdge`)가 이미 쓰고 있다. 못 재면 오른쪽 위(예전 자리). */
+function sayCorner(node, play) {
+  var pick = 'tr';
+  try {
+    var cv = play.querySelector('canvas:not(.fxc)');
+    if (cv && cv.width > 60 && cv.height > 60) {
+      var ctx = cv.getContext('2d');
+      var r = cv.width / (cv.clientWidth || cv.width);          /* 실제 화소 비 */
+      var bw = Math.min(cv.width * 0.52, 300 * r);
+      var bh = Math.min(cv.height * 0.42, 86 * r);
+      var pad = 8 * r;
+      var box = {
+        tr: [cv.width - bw - pad, pad], tl: [pad, pad],
+        br: [cv.width - bw - pad, cv.height - bh - pad], bl: [pad, cv.height - bh - pad]
+      };
+      var best = 1e9, cur = node && node.getAttribute('data-at'), curR = 1e9;
+      for (var k in box) {
+        var x = Math.max(0, Math.round(box[k][0])), y = Math.max(0, Math.round(box[k][1]));
+        var ww = Math.max(1, Math.min(Math.round(bw), cv.width - x));
+        var hh = Math.max(1, Math.min(Math.round(bh), cv.height - y));
+        var d = ctx.getImageData(x, y, ww, hh).data;
+        var ink = 0, n = 0;
+        for (var i = 0; i < d.length; i += 4 * 17) {            /* 띄엄띄엄 센다 */
+          n++;
+          if (d[i + 3] > 24) ink++;
+        }
+        var ratio = n ? ink / n : 1;
+        if (k === cur) curR = ratio;
+        /* 같은 값이면 오른쪽 위를 먼저 (예전 자리라 눈에 익다) */
+        if (ratio < best - 0.02) { best = ratio; pick = k; }
+      }
+      /* 말할 때마다 자리가 튀면 눈이 쫓아다닌다. 지금 자리가 넉넉히 비어 있으면 그대로 둔다 */
+      if (cur && curR < best + 0.08) pick = cur;
+    }
+  } catch (e) {}
+  if (node) node.setAttribute('data-at', pick);
+  return pick;
+}
+
 /* 캔버스의 선 색을 E.line 으로 한 번 거르게 한다.
    장면 코드는 예전 그대로 두고, 밝은 배경에서 안 보이는 선만 어두워진다. */
 function inkStroke(ctx) {
@@ -2044,6 +2099,10 @@ var E = {
     };
   })(),
 
+  /* 말풍선을 붙일 귀 고르기 — 무대 캔버스의 네 귀에서 칠해진 비율을 세고 가장 빈 곳으로.
+     캔버스를 못 읽으면(다른 출처 그림 등) 예전처럼 오른쪽 위에 둔다. */
+  _sayPick: function (play) { return sayCorner(null, play); },
+
   toast: function (msg, kind) {
     /* 재미 — 맞으면 띵, 틀리면 부웅. 틀린 것은 실수로 센다(점수 -5). 선임 얼굴도 반응한다. */
     if (kind === 'good') { beep('good'); faceMood('joy'); }
@@ -2060,6 +2119,9 @@ var E = {
   },
 
   /* ---- 무대 안 말풍선 (루키랩 RL.say 계보) ----
+     **자리는 고정이 아니다.** 예전에는 늘 오른쪽 위였는데, 삼투 편 3장면처럼
+     조작할 것(받침 유리 A)이 그 자리에 있으면 손이 갈 곳을 덮는다.
+     지금은 무대를 네 귀로 나눠 **가장 비어 있는 귀**에 붙인다.
      who 는 대본 cast 의 이름. 대본이 없거나 그 사람이 없으면 false 를 돌려 준다.
      kind 가 'bad' 면 붉은 풍선. ms 뒤에 사라진다(기본 2200). */
   say: function (who, text, mood, kind, ms) {
@@ -2073,6 +2135,7 @@ var E = {
       b.appendChild(el('div', { cls: 'b' }, el('b'), el('span')));
       play.appendChild(b);
     }
+    sayCorner(b, play);
     var cast = ST.who(who);
     $('.f', b).innerHTML = ST.face(who, mood || 'calm');
     $('.b b', b).textContent = cast.n || '';
@@ -4136,7 +4199,7 @@ function scDrop() {
         E.dbg = { n: 'drop', M: M, st: st, hit: hit };
         st.tNow = t;
         var bs = Math.min(1.6, Math.max(1, h / 320));                 /* 시약병 크기 */
-        var sw = Math.min(w * .27, (h - 150 - 50 * bs) / .60), sh = sw * .60;
+        var sw = Math.max(44, Math.min(w * .27, (h - 150 - 50 * bs) / .60)), sh = sw * .60;
         hit = [];
         M.slot = {};
         ['A', 'B', 'C'].forEach(function (k, i) {
@@ -4367,7 +4430,13 @@ function scWait() {
       cv.on(function (c, w, h, t) {
         E.dbg = { n: 'wait', M: M, st: st };
         st.tNow = t;
-        var sw = Math.min(w * .25, (h - 200) / .60), sh = sw * .60;
+        /* 시계 자리를 **먼저** 잡고 남는 띠에 받침 유리를 맞춘다.
+           예전에는 `(h - 200) / .60` 이라 무대가 200 px 보다 짧으면 **음수**가 되어
+           아무것도 안 그려졌다(폰에서 조작판이 길어지면 실제로 그렇게 된다). */
+        var R = Math.max(12, Math.min(42, h * .11));
+        var cy = h - Math.max(34, R + 14);
+        var band = Math.max(40, cy - R - 70);
+        var sw = Math.max(40, Math.min(w * .25, band / .60)), sh = sw * .60;
         M.sw = sw; M.sh = sh; M.slot = {};
         var k5 = st.t / 300;
         var firstOpen = st.cov.B < 0 ? 'B' : st.cov.C < 0 ? 'C' : null;
@@ -4425,8 +4494,7 @@ function scWait() {
           }
         });
 
-        /* 시계 — 흰 문자판에 굵은 테, 5분이 차면 초록 */
-        var cy = h - 56, R = Math.max(12, Math.min(42, h * .11));
+        /* 시계 — 흰 문자판에 굵은 테, 5분이 차면 초록. 자리는 위에서 이미 잡았다 */
         c.save();
         c.beginPath(); c.arc(w / 2, cy, R + 4, 0, Math.PI * 2);
         c.fillStyle = '#fff8e6'; c.fill(); c.strokeStyle = INK; c.lineWidth = 3; c.stroke();
@@ -5955,11 +6023,11 @@ var STORY_OSMO = (function () {
         w: 'sup', f: 'wry', t: '…재촉은 늘 이렇게 온다. 답은 잎이 준다. 잎이나 떼라.' }
     ],
 
-    /* --- 4. 용액. 셋 중 하나가 견줄 자리다 --- */
+    /* --- 4. 용액. 셋 중 하나가 대조군이다 --- */
     drop: [
       { w: 'sup', f: 'calm', t: 'B 에는 증류수, C 에는 소금물. A 에는 아무것도. 하나라도 섞이면 오늘 본 것은 전부 버린다.' },
       { w: 'me', f: 'calm', t: 'A 는 왜 그냥 둡니까?' },
-      { w: 'sup', f: 'wink', t: '견줄 자리다. 견줄 것이 없으면 「달라졌다」는 말을 못 한다.' }
+      { w: 'sup', f: 'wink', t: '<b>대조군</b>이다. 대조군이 없으면 「달라졌다」는 말을 못 한다.' }
     ],
 
     /* --- 5. 5분. 고친 문장이 더 틀렸다 --- */
