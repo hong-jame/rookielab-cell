@@ -419,6 +419,11 @@ table.dat td.l{text-align:left}
   background:var(--sun);border:2px solid var(--ink);white-space:nowrap;
 }
 .qzhead b{flex:1 1 auto;min-width:0;font-size:16px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qzhead .qznum{
+  flex:0 0 auto;font-size:12.5px;font-weight:900;color:var(--ink);
+  padding:3px 9px;border-radius:999px;background:#e9eef4;border:2px solid var(--ink);
+}
+.qzhead .qznum:empty{display:none}
 .qzhead .qzback{
   flex:0 0 auto;padding:7px 12px;border-radius:11px;font-size:12.5px;font-weight:900;
   background:#f2ecdc;border:var(--l-sm) solid var(--ink);color:var(--ink);box-shadow:var(--sh-sm);
@@ -437,6 +442,10 @@ table.dat td.l{text-align:left}
 }
 .qzshot.big{cursor:zoom-out}
 .qzshot[hidden]{display:none}
+/* 문항이 길면 그림은 이름표만 남기고 접힌다. 눌러서 다시 편다 */
+.qzshot.thin{height:34px;padding:0 12px;min-height:0;justify-content:flex-start;cursor:zoom-in}
+#qzv .qzshot.thin canvas{display:none}
+.qzshot.thin .qzshotk{position:static;left:auto;top:auto;max-width:100%}
 /* #stage canvas 의 절대배치 규칙을 벗긴다 (#qzv 가 #stage 안에 있다).
    `#stage canvas` 는 아이디가 있어 클래스 선택자보다 세다. 여기도 아이디를 붙여야 이긴다 */
 #qzv .qzshot canvas{position:static;display:block;flex:0 0 auto;touch-action:auto;
@@ -450,6 +459,24 @@ table.dat td.l{text-align:left}
 .qzlist{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px 14px}
 .qzlist>.card{max-width:660px;margin:0 auto 12px;background:#fff;border-radius:16px;padding:16px 18px}
 .qzlist>.card:last-child{margin-bottom:0}
+.qzlist>.card[hidden]{display:none}
+/* 머리띠가 이미 「확인 문항」이라고 적는다. 안에서 또 적으면 25 px 를 그냥 먹는다 */
+.qzlist>.card.qz>h3{display:none}
+/* 한 문항씩 넘기기 — 단추는 아래 띠에 바로 놓는다 */
+.qzpg[hidden]{display:none}
+.qzpgb{
+  flex:0 0 auto;min-height:44px;padding:0 15px;border-radius:12px;
+  font-size:13.5px;font-weight:900;color:var(--ink);
+  background:#fff;border:var(--l-sm) solid var(--ink);box-shadow:var(--sh-sm);
+  transition:transform .06s,box-shadow .06s;
+}
+.qzpgb:active:not(:disabled){transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.qzpgb:disabled{opacity:.35;box-shadow:none}
+.qzpgb.next{margin-left:auto;background:var(--sun)}
+.qzpgb[hidden],.qzgo[hidden]{display:none}
+.qzpgb.next.go{animation:go 1.1s ease-in-out infinite}
+.qzpgn{flex:0 0 auto;font-size:13px;font-weight:900;color:var(--ink2)}
+.qzpgn[hidden]{display:none}
 .qzlist .card>h3{font-size:15.5px}
 .qzlist .card p{font-size:15px;line-height:1.7}
 .qzlist .qz .opt{font-size:14.5px;padding:13px 14px;line-height:1.55}
@@ -458,12 +485,24 @@ table.dat td.l{text-align:left}
 .qzlist .field{font-size:15px}
 .qzlist .chk{font-size:14px}
 .qzfoot{
-  flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 14px;
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:9px 12px;
   background:var(--paper);border-top:var(--l) solid var(--ink);
 }
-.qzmsg{flex:1 1 auto;min-width:0;font-size:13px;font-weight:800;color:var(--ink2);line-height:1.4}
+/* 잠근 말은 머리띠 아래 한 줄로. 아래 띠에 두면 두 줄이 되어 50 px 를 먹는다 */
+.qzmsgline{
+  flex:0 0 auto;padding:5px 14px;font-size:12.5px;font-weight:800;color:var(--ink2);
+  background:#e9eef4;border-bottom:2px solid rgba(24,19,34,.18);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.qzmsgline[hidden]{display:none}
+/* 넓은 화면은 아래 띠에 잠근 말이 그대로 들어간다. 위아래로 두 번 적지 않는다 */
+@media (min-width:621px){ .qzmsgline{display:none} }
+.qzmsg{flex:1 1 auto;min-width:0;font-size:13px;font-weight:800;color:var(--ink2);line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:620px){ .qzmsg{display:none} }   /* 폰에서는 위 얇은 줄이 대신한다 */
 .qzgo{
-  flex:0 0 auto;padding:12px 22px;border-radius:14px;font-size:15.5px;font-weight:900;
+  flex:0 0 auto;margin-left:auto;min-height:44px;padding:0 20px;border-radius:14px;font-size:15.5px;font-weight:900;
+  display:inline-flex;align-items:center;justify-content:center;
   background:var(--acc);color:var(--ink);border:var(--l-sm) solid var(--ink);box-shadow:var(--sh-sm);
   transition:transform .06s,box-shadow .06s;
 }
@@ -489,9 +528,9 @@ table.dat td.l{text-align:left}
 @media (max-width:620px){
   .qzhead b{font-size:14px}
   .qzlist{padding:12px 10px}
-  .qzlist>.card{padding:13px 14px}
-  .qzlist .card p{font-size:14px}
-  .qzlist .qz .opt{font-size:13.5px;padding:11px 12px}
+  .qzlist>.card{padding:11px 12px}
+  .qzlist .card p{font-size:14px;line-height:1.6}
+  .qzlist .qz .opt{font-size:13.5px;padding:9px 11px;line-height:1.5}
   .qzgo{padding:11px 16px;font-size:14.5px}
 }
 .hint{
@@ -1747,6 +1786,7 @@ var loops = [];          /* 화면 전환 때 멈출 rAF 목록 */
      조작판 맨 위의 「확인 문항 풀기」 카드와 다음 단추(「확인 문항 →」)로 연다. */
 var QZ = { v: null, list: null, msg: null, goBtn: null, card: null, cardBtn: null, title: null,
            shot: true, shotBig: false, shotBox: null, shotCv: null, shotSrc: null, shotKey: null, shotTm: 0,
+           page: 0, pg: null, pgPrev: null, pgNext: null, pgNum: null, num: null, msgLine: null,
            ids: [], extra: 0, open: false, pend: false, seen: false, tm: 0, name: '확인 문항' };
 function qzHas() { return QZ.ids.length > 0 || QZ.extra > 0; }
 function qzUnsolved() {
@@ -1755,12 +1795,13 @@ function qzUnsolved() {
 }
 function qzMake(stage) {
   QZ.ids = []; QZ.extra = 0; QZ.open = false; QZ.pend = false; QZ.seen = false; QZ.name = '확인 문항';
-  QZ.shot = true; QZ.shotSrc = null;   /* shotBig 는 일부러 안 되돌린다 — 한 번 크게 본 사람은 계속 크게 본다 */
+  QZ.shot = true; QZ.shotSrc = null; QZ.page = 0;   /* shotBig 는 일부러 안 되돌린다 */
   clearTimeout(QZ.tm); clearTimeout(QZ.shotTm);
   var v = el('div'); v.id = 'qzv'; v.hidden = true;
   QZ.title = el('b', { text: QZ.name });
+  QZ.num = el('span', { cls: 'qznum' });
   v.appendChild(el('div', { cls: 'qzhead' },
-    el('span', { cls: 'qzk', text: (cur && cur.name) || '' }), QZ.title,
+    el('span', { cls: 'qzk', text: (cur && cur.name) || '' }), QZ.title, QZ.num,
     el('button', { type: 'button', cls: 'qzback', text: '← 무대 보기', onclick: qzClose })));
   /* 확인 화면이 무대를 덮으므로 **방금 한 실험을 그대로 찍어** 문항 옆에 붙인다.
      안내 띠는 캔버스 밖이라 띠에 적힌 말은 그림에 안 딸려 온다.
@@ -1775,6 +1816,15 @@ function qzMake(stage) {
     QZ.shotBig = !QZ.shotBig; beep('tick'); qzShotDraw();
   });
   QZ.list = el('div', { cls: 'qzlist' });
+  /* 문항을 한 장씩 보여 주고 이 줄로 넘긴다. 다 쌓아 두면 폰에서 여덟 화면을 훑어야 한다 */
+  QZ.pgPrev = el('button', { type: 'button', cls: 'qzpgb', text: '← 앞 문항',
+    onclick: function () { qzPageShow(QZ.page - 1); } });
+  QZ.pgNext = el('button', { type: 'button', cls: 'qzpgb next', text: '다음 문항 →',
+    onclick: function () { qzPageShow(QZ.page + 1); } });
+  QZ.pgNum = el('span', { cls: 'qzpgn' });
+  QZ.msgLine = el('div', { cls: 'qzmsgline' });
+  QZ.msgLine.hidden = true;
+  v.appendChild(QZ.msgLine);
   v.appendChild(el('div', { cls: 'qzbody' }, QZ.shotBox, QZ.list));
   QZ.msg = el('span', { cls: 'qzmsg' });
   QZ.goBtn = el('button', { type: 'button', cls: 'qzgo', text: '다음 단계로 →', onclick: function () {
@@ -1782,7 +1832,7 @@ function qzMake(stage) {
     if (idx === SC.length - 1) { openNote(); return; }
     go(idx + 1);
   } });
-  v.appendChild(el('div', { cls: 'qzfoot' }, QZ.msg, QZ.goBtn));
+  v.appendChild(el('div', { cls: 'qzfoot' }, QZ.pgPrev, QZ.pgNum, QZ.msg, QZ.pgNext, QZ.goBtn));
   stage.appendChild(v);
   QZ.v = v;
   /* 조작판의 길잡이 카드. 문항이 있는 장면에서만 보인다(qzCardPaint) */
@@ -1808,6 +1858,39 @@ function qzEval() {
 }
 /* 무대 캔버스를 확인 화면의 자리에 맞춰 그대로 옮겨 그린다.
    화면이 커지거나 다시 열릴 때마다 다시 찍는다(그 사이 무대가 달라졌을 수 있다) */
+/* ---- 한 문항씩 ----
+   확인 화면의 카드를 다 쌓아 두면 폰에서 1672 px 를 206 px 창으로 훑게 된다(실측).
+   한 장만 보이고 아래 줄로 넘긴다. 어디쯤인지는 머리띠에 「2 / 3」 으로 적는다. */
+function qzCards() {
+  if (!QZ.list) return [];
+  return Array.prototype.filter.call(QZ.list.children, function (n) {
+    return n.classList && n.classList.contains('card');
+  });
+}
+function qzPageShow(n) {
+  var cs = qzCards(), m = cs.length;
+  if (!m) {
+    if (QZ.pg) QZ.pg.hidden = true;
+    if (QZ.num) QZ.num.textContent = '';
+    return;
+  }
+  QZ.page = Math.max(0, Math.min(m - 1, n));
+  for (var i = 0; i < m; i++) cs[i].hidden = (i !== QZ.page);
+  var last = QZ.page === m - 1;
+  QZ.pgPrev.hidden = m < 2; QZ.pgNum.hidden = m < 2;
+  QZ.pgPrev.disabled = QZ.page === 0;
+  QZ.pgNum.textContent = (QZ.page + 1) + ' / ' + m;
+  /* 마지막 장에서는 「다음 문항」 자리가 그대로 「다음 단계로」가 된다. 단추가 하나다 */
+  QZ.pgNext.hidden = last;
+  QZ.pgNext.classList.remove('go');
+  QZ.goBtn.hidden = !last;
+  if (QZ.num) QZ.num.textContent = m > 1 ? (QZ.page + 1) + ' / ' + m : '';
+  if (QZ.list) QZ.list.scrollTop = 0;
+  qzShotFit();
+}
+/* 그림 띠는 지금 문항이 들어갈 만큼만 차지한다 */
+function qzShotFit() { if (QZ.open) qzShotDraw(); }
+
 /* **확인 화면을 덮기 전에** 무대를 통째로 떠 둔다.
    덮은 뒤에 읽으면 늦다 — 무대 캔버스가 자리를 다시 잡느라 1 px 이 되거나 비워지는 순간이 있다.
    효과용 캔버스(.fxc)가 아니라 무대 캔버스를 집는다 */
@@ -1829,13 +1912,33 @@ function qzShotDraw() {
      폰은 무대가 화면의 절반뿐이라 vh 로 잡으면 어긋나고, 퍼센트 flex-basis 는 0 으로 잡힌다 */
   var body = QZ.shotBox.parentNode, avail = body ? body.clientHeight : 0;
   if (avail > 60) {
-    var ratio = QZ.shotBig ? 0.82 : 0.46;
-    /* 크게 볼 때는 문항 한 줄(96 px)만 남기고 다 준다. 보통 때는 150 px 를 남긴다 */
-    var cap = Math.max(100, Math.min(660, avail - (QZ.shotBig ? 96 : 150)));
-    QZ.shotBox.style.height = Math.max(100, Math.min(cap, Math.round(avail * ratio))) + 'px';
+    var want;
+    if (QZ.shotBig) {
+      want = Math.round(avail * 0.82);
+    } else {
+      /* **지금 보이는 문항이 통째로 들어갈 만큼만** 띠에 준다.
+         문항이 길면 그림이 줄고, 짧으면 커진다. 스크롤을 안 만드는 것이 먼저다 */
+      var cs = qzCards(), cardH = 0;
+      if (cs.length) {
+        var cur2 = cs[Math.max(0, Math.min(cs.length - 1, QZ.page))];
+        cardH = (cur2 && cur2.scrollHeight) || 0;
+        cardH += 26;                                   /* 목록 안쪽 여백 */
+      }
+      want = cardH ? (avail - cardH) : Math.round(avail * 0.46);
+      want = Math.min(want, Math.round(avail * 0.46));
+    }
+    var cap = Math.max(96, Math.min(660, avail - (QZ.shotBig ? 96 : 120)));
+    /* 문항이 길어 그림이 설 자리가 없으면 **얇은 띠로 접는다.** 눌러서 다시 편다.
+       작게라도 억지로 세우면 문항이 잘려 스크롤이 생긴다 — 그게 더 불편하다 */
+    var thin = !QZ.shotBig && want < 84;
+    QZ.shotBox.classList.toggle('thin', thin);
+    QZ.shotBox.style.height = thin ? '' : (Math.max(96, Math.min(cap, want)) + 'px');
+    if (QZ.shotKey) QZ.shotKey.textContent = QZ.shotBig ? '방금 한 실험 — 눌러서 줄이기'
+                                                        : (thin ? '방금 한 실험 — 눌러서 보기'
+                                                                : '방금 한 실험 — 눌러서 크게');
+    if (thin) return;                                  /* 접었으면 그리지 않는다 */
   }
   QZ.shotBox.classList.toggle('big', !!QZ.shotBig);
-  if (QZ.shotKey) QZ.shotKey.textContent = QZ.shotBig ? '방금 한 실험 — 눌러서 줄이기' : '방금 한 실험 — 눌러서 크게';
   var bw = QZ.shotBox.clientWidth - 28, bh = QZ.shotBox.clientHeight - 28;   /* 여백 10 두 쪽 + 테두리 2.5 두 쪽 */
   if (!(bw > 40 && bh > 40)) { QZ.shotBox.hidden = true; return; }
   var k = Math.min(bw / src.width, bh / src.height);
@@ -1864,6 +1967,7 @@ function qzOpen() {
   qzShotGrab();                                   /* 덮기 전에 먼저 뜬다 */
   QZ.v.hidden = false; QZ.open = true; QZ.v.classList.remove('in'); void QZ.v.offsetWidth; QZ.v.classList.add('in');
   QZ.list.scrollTop = 0;
+  qzPageShow(QZ.page);
   qzShotSoon();
   beep('pick');
   qzPaint();
@@ -1882,6 +1986,11 @@ function qzPaint() {
     b.textContent = nextOK ? (last ? '마침' : '다음 →') : pend ? QZ.name + ' →' : (last ? '마침' : '다음 →');
     b.classList.toggle('qzpend', pend);
     b.title = nextOK ? '' : pend ? QZ.name + '을 풀면 넘어갑니다' : (nextMsg || '이 단계를 마쳐야 넘어갈 수 있어요');
+  }
+  if (QZ.msgLine) {
+    var mt = QZ.msg ? QZ.msg.textContent : '';
+    QZ.msgLine.textContent = mt;
+    QZ.msgLine.hidden = !(mt && !nextOK && QZ.open);
   }
   if (QZ.goBtn) {
     QZ.goBtn.disabled = !nextOK;
@@ -1997,6 +2106,7 @@ var E = {
   quizCard: function (card) {
     if (!QZ.list || !card) return card;
     QZ.list.appendChild(card); QZ.extra++;
+    qzPageShow(QZ.page);
     qzEval();
     return card;
   },
@@ -2346,7 +2456,16 @@ var E = {
         tries++;
         if (i === q.a) {
           solved = true;
+          wrap.setAttribute('data-ok', '1');
           D._ans[q.id] = { ok: true, tries: tries }; save();
+          /* 해설이 화면 아래로 밀려 안 보이던 것. 답한 뒤에는 해설 자리로 굴려 준다 */
+          setTimeout(function () {
+            try {
+              if (why && why.scrollIntoView) why.scrollIntoView({ block: 'nearest' });
+              if (QZ.pgNext && !QZ.pgNext.disabled) QZ.pgNext.classList.add('go');
+            } catch (e) {}
+            qzShotFit();
+          }, 60);
           funScore(tries === 1 ? 30 : 10, tries === 1 ? '첫 번에 정답 +30' : '정답 +10');
           $$('.opt', box).forEach(function (x, j) { x.disabled = true; if (j === q.a) x.classList.add('ok'); });
           why.innerHTML = '<div class="why"><b>맞았습니다.</b> ' + q.why + '</div>';
@@ -2374,6 +2493,7 @@ var E = {
       var old = QZ.list.querySelector('.qz[data-qid="' + q.id + '"]');
       if (old) { QZ.list.replaceChild(wrap, old); }
       else { QZ.list.appendChild(wrap); QZ.ids.push(q.id); }
+      qzPageShow(QZ.page);
       qzEval();
     } else host.appendChild(wrap);
     return wrap;
