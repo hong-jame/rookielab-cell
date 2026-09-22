@@ -2523,6 +2523,9 @@ var E = {
       var btn = el('button', { cls: 'btn ghost', type: 'button', text: '예시 답안 보기' });
       var mv = el('div');
       btn.addEventListener('click', function () {
+        /* o.need 가 있으면 먼저 해야 할 것을 알려 주고 막는다 (무대에서 뭘 보고 와야 할 때) */
+        var need = o.need && o.need();
+        if (need) { E.toast(need, 'bad'); return; }
         if (!ta.value.trim()) { E.toast('먼저 내 생각을 적어 보세요', 'bad'); return; }
         mv.innerHTML = '<div class="why"><b>예시 답안</b><br>' + o.model + '</div>';
         btn.disabled = true;
@@ -3670,6 +3673,37 @@ function drawCover(c, x, y, s) {
   c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2; c.lineCap = 'round'; c.stroke();
   c.restore();
 }
+/* 헹굼 비커 — 물이 담긴 낮은 유리컵. p 는 헹구는 진행(0~1), 가운데쯤 물이 흐려진다 */
+function drawBeaker(c, x, y, s, p) {
+  s = s || 1;
+  c.save(); c.translate(x, y); c.scale(s, s);
+  c.fillStyle = 'rgba(24,19,34,.28)';
+  c.beginPath(); c.moveTo(-18, -14); c.lineTo(22, -14); c.lineTo(19, 28); c.lineTo(-15, 28); c.closePath(); c.fill();
+  c.beginPath();
+  c.moveTo(-22, -18); c.lineTo(18, -18); c.lineTo(15, 24); c.lineTo(-19, 24); c.closePath();
+  c.fillStyle = '#eef6fb'; c.strokeStyle = INK; c.lineWidth = 2.5; c.lineJoin = 'round';
+  c.fill(); c.stroke();
+  c.save(); c.clip();
+  var murk = p ? Math.sin(E.clamp(p, 0, 1) * Math.PI) : 0;      /* 흐려졌다 다시 맑아진다 */
+  c.fillStyle = 'rgb(' + Math.round(111 + murk * 60) + ',' + Math.round(182 - murk * 30) +
+                ',' + Math.round(232 - murk * 60) + ')';
+  c.fillRect(-24, 2, 44, 26);
+  /* 헹굴 때 이는 물결 */
+  if (p) {
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1.8;
+    for (var i = 0; i < 3; i++) {
+      var rr2 = 3 + ((p * 30 + i * 4) % 12);
+      c.globalAlpha = 1 - rr2 / 14;
+      c.beginPath(); c.arc(-2, 4, rr2, 0, Math.PI * 2); c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
+  c.restore();
+  c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(-16, -10); c.lineTo(-14, 18); c.stroke();
+  c.restore();
+}
+
 /* 검정말 잎 한 장 — 길쭉한 버들잎 모양 */
 function drawLeafShape(c, x, y, len, wid, rot, col, edge) {
   c.save();
@@ -3947,22 +3981,41 @@ function bigChl() {
   return g;
 }
 
-/* 세포 한 개를 크게 그린다 (결과 정리·원형질복귀 장면용) */
+/* 네 변이 바깥으로 b 만큼 휘는 둥근 네모. 팽압으로 세포벽이 밀리는 것을 보이는 데 쓴다 */
+function bowRect(c, x, y, w, h, r, b) {
+  b = (b || 0) * 2;
+  r = Math.min(r, Math.min(w, h) / 2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.quadraticCurveTo(x + w / 2, y - b, x + w - r, y);
+  c.quadraticCurveTo(x + w, y, x + w, y + r);
+  c.quadraticCurveTo(x + w + b, y + h / 2, x + w, y + h - r);
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  c.quadraticCurveTo(x + w / 2, y + h + b, x + r, y + h);
+  c.quadraticCurveTo(x, y + h, x, y + h - r);
+  c.quadraticCurveTo(x - b, y + h / 2, x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
+
+/* 세포 한 개를 크게 그린다 (결과 정리·원형질복귀 장면용).
+   o.bow 를 주면 세포벽과 원형질이 바깥으로 휜다 — 저장액에서 팽압이 벽을 미는 그림 */
 function drawBigCell(c, cx, cy, W, H, p, chl, o) {
   o = o || {};
   var sx = W / CW, sy = H / CH;
+  var bow = o.bow || 0;
   c.save();
   /* 세포벽 — 굵은 검은 외곽선 안에 벽 색 띠 */
-  rr(c, cx - W / 2 + 4, cy - H / 2 + 6, W, H, 10 * sx);
+  bowRect(c, cx - W / 2 + 4, cy - H / 2 + 6, W, H, 10 * sx, bow);
   c.fillStyle = 'rgba(24,19,34,.28)'; c.fill();
-  rr(c, cx - W / 2, cy - H / 2, W, H, 10 * sx);
+  bowRect(c, cx - W / 2, cy - H / 2, W, H, 10 * sx, bow);
   c.fillStyle = o.gap || '#dbe9d2'; c.fill();
   c.lineWidth = WALL * sx * 1.1 + 5; c.strokeStyle = INK; c.lineJoin = 'round'; c.stroke();
   c.lineWidth = WALL * sx * 1.1; c.strokeStyle = '#7d9a6a'; c.stroke();
   /* 원형질 */
   var pw = protoW(p) * sx, ph = protoH(p) * sy;
   var rad = (3 + (Math.min(protoW(p), protoH(p)) * .45 - 3) * p) * sx;
-  rr(c, cx - pw / 2, cy - ph / 2, pw, ph, rad);
+  bowRect(c, cx - pw / 2, cy - ph / 2, pw, ph, rad, bow);
   c.fillStyle = '#d3ecca'; c.fill();
   c.lineWidth = Math.max(1.8, 1.3 * sx); c.strokeStyle = '#2c6b34'; c.stroke();
   /* 엽록체 */
@@ -3987,9 +4040,12 @@ function prep() {
   if (D.leaf === undefined) D.leaf = { A: 0, B: 0, C: 0 };     /* 받침 유리에 올린 잎 */
   if (D.sol === undefined) D.sol = { B: 0, C: 0 };             /* 떨어뜨린 방울 수 */
   if (D.solBad === undefined) D.solBad = 0;                    /* 엉뚱한 곳에 떨어뜨렸는지 */
+  if (D.dirty === undefined) D.dirty = 0;                      /* 스포이트에 묻은 용액 'W' 'S' 또는 0 */
   if (D.waited === undefined) D.waited = 0;
   if (D.cover === undefined) D.cover = { B: -1, C: -1 };       /* -1 아직 안 덮음, 그 밖은 기포 수 */
   if (D.blot === undefined) D.blot = 0;
+  /* 거름종이를 B 와 C 따로 닦는다. 옛 저장값(D.blot === 1)은 「둘 다 닦음」으로 읽는다 */
+  if (D.blotN === undefined) D.blotN = D.blot ? { B: 1, C: 1 } : { B: 0, C: 0 };
   if (D.seen === undefined) D.seen = { A: 0, B: 0, C: 0 };
   if (D.marks === undefined) D.marks = 0;
   if (D.markPts === undefined) D.markPts = [];               /* 표시한 세포의 좌표 */
@@ -3998,6 +4054,7 @@ function prep() {
   if (D.rec === undefined) D.rec = 0;                          /* 원형질복귀 진행 0~1 */
   if (D.press === undefined) D.press = { turgor: 0, zero: 0 }; /* 그래프에서 읽은 값 */
   if (D.tonic === undefined) D.tonic = {};                     /* 살펴본 용액 */
+  if (D.para === undefined) D.para = {};                       /* 짚신벌레를 살펴본 환경 */
 }
 
 /* ================================================================
@@ -4354,7 +4411,14 @@ function scDrop() {
     mount: function (stage, panel) {
       /* n 은 논리값(즉시), pud 는 웅덩이 그림값(스프링으로 따라온다) */
       var st = { hold: null, n: { B: D.sol.B, C: D.sol.C }, badDrop: D.solBad, anim: [],
-                 pud: { B: D.sol.B, C: D.sol.C }, sp: {}, ptr: null, splash: {} };
+                 pud: { B: D.sol.B, C: D.sol.C }, sp: {}, ptr: null, splash: {},
+                 dirty: D.dirty || 0, rinse: 0, rinseT: 0, nag: 0 };
+      var SOLN = { W: '증류수', S: '10 % 소금물' };
+      /* 받침이 있으면 「이」, 없으면 「가」. 「증류수 가」처럼 띄어 찍히던 것 */
+      function iga(w) {
+        var c0 = w.charCodeAt(w.length - 1);
+        return (c0 >= 0xAC00 && c0 <= 0xD7A3 && (c0 - 0xAC00) % 28) ? '이' : '가';
+      }
       var cv = E.canvas(stage), M = {}, hit = [];
       var COL = { W: '#6fb6e8', S: '#e8b96f' };
       cv.on(function (c, w, h, t) {
@@ -4397,10 +4461,18 @@ function scDrop() {
           }
         });
 
-        /* 시약병 두 개 — 들고 있는 병은 살짝 들린다 */
+        /* 시약병 두 개 — 들고 있는 병은 살짝 들린다. 가운데는 헹굼 비커 */
         var by = h - 36 - 30 * bs;            /* 병은 맨 아래, 이름은 그 밑 */
-        [{ k: 'W', x: w * .32, n: '증류수' },
-         { k: 'S', x: w * .68, n: '10 % 소금물' }].forEach(function (b) {
+        M.beaker = { x: w * .5, y: by + 6 * bs, r: 34 * bs + 12 };
+        hit.push({ type: 'wash', x: M.beaker.x, y: M.beaker.y, r: M.beaker.r });
+        drawBeaker(c, M.beaker.x, M.beaker.y, bs, st.rinse ? E.clamp((st.tNow - st.rinseT) / 0.6, 0, 1) : 0);
+        chip(c, M.beaker.x, Math.min(h - 14, by + 30 * bs + 14),
+             w < 430 ? '헹굼' : '헹굼 비커',            /* 폰에서는 옆 이름표와 겹친다 */
+             st.rinse ? '#ffd23f' : '#fff8e6', 11);
+        /* 헹궈야 하는데 안 헹구고 있으면 비커가 부른다 */
+        if (!st.rinse && st.nag) E.grab(c, M.beaker.x, M.beaker.y, 28 * bs, t);
+        [{ k: 'W', x: w * .21, n: '증류수' },
+         { k: 'S', x: w * .79, n: '10 % 소금물' }].forEach(function (b) {
           hit.push({ type: 'bot', k: b.k, x: b.x, y: by, r: 36 * bs + 14 });
           var on = st.hold === b.k;
           /* 병 밑에 붙는 칩은 무대 아래 끝(h-7)에 닿으면 안 된다. 칩 바닥 = by+48.5 ≤ h-9.5 */
@@ -4408,8 +4480,19 @@ function scDrop() {
           chip(c, b.x, Math.min(h - 14, by + 30 * bs + 14), b.n, on ? '#ffd23f' : '#fff8e6', 11);
         });
 
-        /* 손에 든 스포이트 — 병을 고르면 손가락을 따라다닌다 */
-        if (st.hold && st.ptr) drawDropper(c, st.ptr.x + 22, st.ptr.y - 6, COL[st.hold], .9);
+        /* 손에 든 스포이트 — 병을 고르면 손가락을 따라다닌다.
+           헹구는 동안은 비커 위에 가 있고, 담긴 것이 없어도 묻은 것이 있으면 자국이 보인다 */
+        var dx0 = st.rinse ? M.beaker.x : (st.ptr ? st.ptr.x + 22 : 0);
+        var dy0 = st.rinse ? M.beaker.y - 26 * bs : (st.ptr ? st.ptr.y - 6 : 0);
+        if (st.rinse) {
+          var rp = E.clamp((st.tNow - st.rinseT) / 0.6, 0, 1);
+          drawDropper(c, dx0, dy0 + Math.abs(Math.sin(rp * Math.PI * 2)) * -6,
+                      rp > .5 ? null : 'rgba(150,170,190,.7)', .9);
+        } else if (st.hold && st.ptr) {
+          drawDropper(c, dx0, dy0, COL[st.hold], .9);
+        } else if (st.dirty && st.ptr) {
+          drawDropper(c, dx0, dy0, st.dirty === 'W' ? 'rgba(111,182,232,.45)' : 'rgba(232,185,111,.45)', .9);
+        }
 
         /* 떨어지는 방울 — 닿는 순간 소리와 번짐 */
         st.anim = st.anim.filter(function (a) { return a.p < 1; });
@@ -4423,8 +4506,9 @@ function scDrop() {
           if (a.p >= 1) land(a);
         });
 
-        E.hint(stage, st.hold
-          ? (st.hold === 'W' ? '증류수' : '10 % 소금물') + ' 를 스포이트에 담았습니다 — 받침 유리를 누르세요'
+        E.hint(stage, st.rinse ? '헹구는 중…'
+          : st.hold ? SOLN[st.hold] + ' 를 스포이트에 담았습니다 — 받침 유리를 누르세요'
+          : st.dirty ? '스포이트에 ' + SOLN[st.dirty] + iga(SOLN[st.dirty]) + ' 묻어 있습니다 — 헹굼 비커에 헹구세요'
           : (st.n.B >= 2 && st.n.B <= 3 && st.n.C >= 2 && st.n.C <= 3 && !st.badDrop
               ? '두 표본 모두 2방울~3방울 처리 완료 — 아래 확인 문항을 푸세요' : '시약병을 눌러 스포이트에 담으세요'));
       });
@@ -4446,9 +4530,32 @@ function scDrop() {
         for (var i = 0; i < hit.length; i++) {
           var tg = hit[i];
           if (E.dist(p.x, p.y, tg.x, tg.y) > tg.r) continue;
+          if (st.rinse) return;                       /* 헹구는 동안은 아무것도 안 받는다 */
+          if (tg.type === 'wash') {
+            if (!st.hold && !st.dirty) { E.toast('헹굴 것이 없다. 스포이트가 깨끗하다.', ''); return; }
+            st.rinse = 1; st.rinseT = st.tNow || 0;
+            E.beep('whoosh'); E.buzz(14);
+            setTimeout(function () {
+              st.rinse = 0; st.hold = null; st.dirty = 0; st.nag = 0;
+              D.dirty = 0; E.save();
+              E.beep('clear'); E.toast('헹궜다. 이제 다른 용액을 담아도 된다.', 'good');
+              sync();
+            }, 620);
+            return;
+          }
           if (tg.type === 'bot') {
+            /* 스포이트는 하나다. **다른 용액이 들어 있거나 묻어 있으면 못 담는다.**
+               실제 실험에서 증류수 스포이트를 그대로 소금물 병에 넣으면 시약병까지 못 쓰게 된다 */
+            var inIt = st.hold || st.dirty;
+            if (inIt && inIt !== tg.k) {
+              st.nag = 1; E.buzz(40); E.beep('thud');
+              E.toast('스포이트에 ' + SOLN[inIt] + iga(SOLN[inIt]) + ' ' + (st.hold ? '들어' : '묻어') +
+                      ' 있다. 헹굼 비커에 헹구고 와라.', 'bad');
+              return;
+            }
             st.hold = st.hold === tg.k ? null : tg.k; E.buzz(10);
             E.beep(st.hold ? 'pick' : 'tick');
+            sync();
             return;
           }
           if (!st.hold) { E.toast('빈손이다. 먼저 시약병을 눌러 스포이트에 담아라.', 'bad'); return; }
@@ -4463,7 +4570,8 @@ function scDrop() {
             E.toast(tg.k + ' 에 다른 용액이 들어갔다. 이 표본은 버린다. 다시 만들어라.', 'bad');
             sync(); return;
           }
-          st.n[tg.k]++; D.sol = { B: st.n.B, C: st.n.C }; E.save();
+          st.n[tg.k]++; st.dirty = st.hold;
+          D.sol = { B: st.n.B, C: st.n.C }; D.dirty = st.dirty; E.save();
           st.anim.push({ k: tg.k, p: 0, col: COL[st.hold], x0: p.x + 22, y0: p.y - 6 });
           E.beep('tick'); E.buzz(12);
           if (st.n[tg.k] > 3) E.toast('너무 많다. 덮개 유리 밖으로 넘친다.', 'bad');
@@ -4479,21 +4587,26 @@ function scDrop() {
         '<div class="card"><h3>왜 이 두 가지일까</h3>' +
         '<p><b>증류수</b>에는 녹아 있는 물질이 거의 없어 세포 안보다 물의 농도가 높은 <b>저장액</b>입니다.</p>' +
         '<p><b>10 % 소금물</b>은 세포 안의 용액보다 삼투압이 훨씬 높은 <b>고장액</b>입니다. ' +
-        '소금은 세포막을 그대로 통과하지 못하므로, 세포막을 통해 이동하는 것은 <b>물</b>입니다.</p></div>';
+        '소금은 세포막을 그대로 통과하지 못하므로, 세포막을 통해 이동하는 것은 <b>물</b>입니다.</p></div>' +
+        '<div class="card"><h3>스포이트는 하나입니다</h3>' +
+        '<p>증류수를 쓴 스포이트를 그대로 소금물 병에 넣으면 <b>시약병 전체가 못 쓰게 됩니다.</b> ' +
+        '용액을 바꾸기 전에 무대 가운데 <b>헹굼 비커</b>에서 헹구세요.</p></div>';
 
       var s2 = E.el('div', { cls: 'card' });
       s2.appendChild(E.el('h3', { text: '처리 상태' }));
       var lA = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: 'A — 아무것도 떨어뜨리지 않음' }));
       var lB = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: 'B — 증류수 2방울~3방울' }));
       var lC = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: 'C — 10 % 소금물 2방울~3방울' }));
+      var lD = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: '스포이트 — 깨끗함' }));
+      s2.appendChild(lD);
       s2.appendChild(lA); s2.appendChild(lB); s2.appendChild(lC);
       var warn = E.el('div'); s2.appendChild(warn);
       var row = E.el('div', { cls: 'btnrow' });
       var rb = E.el('button', { cls: 'btn ghost', type: 'button', text: '표본 다시 만들기' });
       rb.addEventListener('click', function () {
         st.n = { B: 0, C: 0 }; st.badDrop = 0; st.hold = null; st.anim = [];
-        st.pud = { B: 0, C: 0 }; st.splash = {};
-        D.sol = { B: 0, C: 0 }; D.solBad = 0; E.save(); sync();
+        st.pud = { B: 0, C: 0 }; st.splash = {}; st.dirty = 0; st.rinse = 0; st.nag = 0;
+        D.sol = { B: 0, C: 0 }; D.solBad = 0; D.dirty = 0; E.save(); sync();
         E.beep('whoosh');
         E.toast('새 잎 세 장. 이번엔 섞지 마라.');
       });
@@ -4503,6 +4616,12 @@ function scDrop() {
 
       function sync() {
         var b = st.n.B >= 2 && st.n.B <= 3, cc = st.n.C >= 2 && st.n.C <= 3;
+        var inIt2 = st.hold || st.dirty;
+        lD.classList.toggle('done', !inIt2);
+        lD.lastChild.textContent = inIt2
+          ? ('스포이트 — ' + SOLN[inIt2] + (st.hold ? ' 들어 있음' : ' 묻음') + ' (헹굼 비커에 헹구세요)')
+          : '스포이트 — 깨끗함';
+        lD.title = inIt2 ? '용액을 바꾸려면 먼저 헹굽니다' : '';
         lA.classList.toggle('done', !st.badDrop);
         lB.classList.toggle('done', b && !st.badDrop);
         lC.classList.toggle('done', cc && !st.badDrop);
@@ -4571,14 +4690,42 @@ function scWait() {
       var st = {
         t: D.waited || 0, run: false, speed: 1,
         cov: { B: D.cover.B, C: D.cover.C }, blot: D.blot,
-        drag: null, y: { B: 0, C: 0 }, ct: {}
+        blotN: { B: D.blotN.B, C: D.blotN.C },
+        drag: null, y: { B: 0, C: 0 }, ct: {},
+        /* 젖는 선 — 유리가 눕는 만큼 용액이 번져 나가며 공기를 밀어낸다.
+           유리가 앞서 가면 그 사이가 **갇힌 공기**가 된다. 화면에서 그것이 보인다 */
+        wet: { B: 0, C: 0 }, wetAt: { B: 0, C: 0 },
+        pdrag: 0, pp: null, soak: { B: 0, C: 0 }, nagMid: 0, midT: 0, pt: 0
       };
+      var WETSPD = 2.1;          /* 초당 번지는 정도. 0.48초에 걸쳐 내리면 딱 따라잡는다 */
+      var SOAKT = 0.6;           /* 거름종이를 대고 있어야 하는 시간(초) */
       var bStart, cv = E.canvas(stage), M = {}, last = performance.now();
       var rnd = E.rng(909), bubPos = { B: [], C: [] };
 
       /* 타이머는 rAF 가 아니라 시계로 돈다. 다른 탭에 가 있어도 시간이 흐른다. */
       var tick = setInterval(function () {
         var now = performance.now(), dt = (now - last) / 1000; last = now;
+        /* 거름종이를 가장자리에 대고 있으면 빨린다. **그리기 고리가 아니라 시계로 센다** —
+           그리기 고리는 탭이 뒤로 가면 멎는다 */
+        if (st.pdrag && st.pp && M.slot) {
+          ['B', 'C'].forEach(function (k) {
+            if (st.blotN[k] || st.cov[k] < 0) return;
+            var s0 = M.slot[k]; if (!s0) return;
+            var ddx = st.pp.x - s0.x, ddy = st.pp.y - s0.y;
+            if (Math.abs(ddx) > M.sw * .62 || Math.abs(ddy) > M.sh * .78) { st.midT = 0; return; }
+            if (Math.abs(ddx) < M.sw * .62 * .32) {         /* 가운데는 잎이 눌린다 */
+              st.midT = (st.midT || 0) + dt;
+              if (st.midT > .3 && !st.nagMid) {
+                st.nagMid = 1;
+                E.toast('가장자리에 살짝 대라. 가운데를 누르면 잎이 눌린다.', 'bad');
+              }
+              return;
+            }
+            st.midT = 0;
+            st.soak[k] += dt;
+            if (st.soak[k] >= SOAKT) blotDone(k);
+          });
+        }
         if (!st.run || st.t >= 300) return;
         st.t = Math.min(300, st.t + dt * st.speed);
         E.dbgWait = st.t;
@@ -4591,7 +4738,15 @@ function scWait() {
 
       cv.on(function (c, w, h, t) {
         E.dbg = { n: 'wait', M: M, st: st };
+        var dt = E.clamp(t - (st.pt || t), 0, .05); st.pt = t;
         st.tNow = t;
+        /* 젖는 선은 유리를 뒤따라간다. 못 따라간 만큼이 공기다 */
+        ['B', 'C'].forEach(function (k) {
+          if (st.cov[k] >= 0) return;
+          var want = st.y[k] / 96;
+          if (st.wet[k] < want) st.wet[k] = Math.min(want, st.wet[k] + WETSPD * dt);
+        });
+
         /* 시계 자리를 **먼저** 잡고 남는 띠에 받침 유리를 맞춘다.
            예전에는 `(h - 200) / .60` 이라 무대가 200 px 보다 짧으면 **음수**가 되어
            아무것도 안 그려졌다(폰에서 조작판이 길어지면 실제로 그렇게 된다). */
@@ -4608,9 +4763,13 @@ function scWait() {
           M.slot[k] = { x: x, y: y };
           drawSlide(c, x - sw / 2, y - sh / 2, sw, sh);
           if (k !== 'A') {
+            /* 거름종이가 빨아들인 만큼 웅덩이가 줄어든다 */
+            var soak = st.blotN[k] ? 1 : E.clamp(st.soak[k] / SOAKT, 0, 1);
+            var left = 1 - soak * .55;
             c.save();
-            c.fillStyle = (k === 'B' ? 'rgba(120,190,240,.30)' : 'rgba(240,200,140,.32)');
-            c.beginPath(); c.ellipse(x, y, sw * .34, sh * .36, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = (k === 'B' ? 'rgba(120,190,240,' : 'rgba(240,200,140,') +
+              (.32 - soak * .18).toFixed(3) + ')';
+            c.beginPath(); c.ellipse(x, y, sw * .34 * left, sh * .36 * left, 0, 0, Math.PI * 2); c.fill();
             c.restore();
           }
           /* 잎 — C 는 시간이 갈수록 색이 조금 옅어진다 (물이 빠져나감) */
@@ -4624,15 +4783,33 @@ function scWait() {
           /* 덮개 유리 */
           if (k === 'A') { drawCover(c, x, y, sw * .62); chip(c, x, y + sh / 2 + 18, '바로 덮음', '#5fd68a', 11); return; }
           if (st.cov[k] >= 0) {
-            var kk = popK(t - (st.ct[k] == null ? -9 : st.ct[k]));
+            var age = performance.now() / 1000 - (st.ct[k] == null ? 9e9 : st.ct[k]);
+            var kk = popK(age);
             c.save(); c.translate(x, y); c.scale(kk, kk); c.translate(-x, -y);
             drawCover(c, x, y, sw * .62);
             c.restore();
+            /* **갇히는 순간은 0.2초면 끝난다.** 덮은 뒤 잠깐 그 자리를 남겨 두어야 보인다.
+               덮개 유리 **위에** 얹어 그린다. 밑에 깔면 유리 그림자에 묻힌다 */
+            if (st.cov[k] > 0 && age >= 0 && age < 1.4) {
+              var fade = E.clamp(1 - (age - .7) / .7, 0, 1);
+              var tw0 = (st.wetAt[k] - .5) * sw * .62, tw1 = sw * .31;
+              c.save(); c.globalAlpha = fade;
+              c.fillStyle = 'rgba(255,255,255,.85)';
+              c.fillRect(x + tw0, y - sh * .40, tw1 - tw0, sh * .80);
+              c.strokeStyle = '#b5322f'; c.lineWidth = 2.6; c.setLineDash([6, 4]);
+              c.strokeRect(x + tw0, y - sh * .40, tw1 - tw0, sh * .80);
+              c.setLineDash([]);
+              if (tw1 - tw0 > 46) label(c, x + (tw0 + tw1) / 2, y - sh * .16, '갇힌 공기', '#b5322f', 11.5);
+              c.restore();
+            }
             if (st.cov[k] > 0) {
+              /* 기포는 **공기가 갇혔던 자리**(젖는 선이 멈춘 곳부터 오른쪽)에 남는다 */
               if (bubPos[k].length !== st.cov[k]) {
                 bubPos[k] = [];
+                var x0 = (st.wetAt[k] - .5) * sw * .62, x1 = sw * .30;
                 for (var bi = 0; bi < st.cov[k]; bi++)
-                  bubPos[k].push([(rnd() - .5) * sw * .42, (rnd() - .5) * sw * .42, 4 + rnd() * 7]);
+                  bubPos[k].push([x0 + rnd() * Math.max(10, x1 - x0),
+                                  (rnd() - .5) * sw * .40, 4 + rnd() * 7]);
               }
               bubPos[k].forEach(function (b) {
                 c.save();
@@ -4642,15 +4819,47 @@ function scWait() {
                 c.restore();
               });
             }
+            /* 너무 급하게 내리면 용액이 유리 밖으로 삐져나온다 */
+            if (st.cov[k] >= 4) {
+              c.save(); c.fillStyle = (k === 'B' ? 'rgba(120,190,240,.45)' : 'rgba(240,200,140,.5)');
+              [-1, 1].forEach(function (sgn) {
+                c.beginPath();
+                c.ellipse(x + sgn * sw * .38, y + sh * .30, sw * .10, sh * .10, 0, 0, Math.PI * 2);
+                c.fill();
+              });
+              c.restore();
+            }
             chip(c, x, y + sh / 2 + 18, st.cov[k] ? '기포 ' + st.cov[k] + '개' : '기포 없음',
               st.cov[k] ? '#ff8f8f' : '#5fd68a', 11);
           } else if (k5 >= 1) {
             /* 논리 거리는 96px 그대로, 그림만 무대 높이에 맞춰 줄인다(짧은 무대에서 위가 잘리던 것) */
             var L = Math.max(30, Math.min(96, y - sw * .31 - 10));
             var top = y - L + st.y[k] * (L / 96);
-            var tilt = E.clamp(.30 - st.y[k] / 240, 0, .30);
+            var tilt = E.clamp(.42 - st.y[k] / 230, 0, .42);
+            var S2 = sw * .62, wl = x - S2 / 2;
+            /* 젖은 자리 — 왼쪽 모서리에서 번져 나간다 */
+            var ww = st.wet[k] * S2;
+            if (ww > 1) {
+              c.save();
+              c.fillStyle = (k === 'B' ? 'rgba(120,190,240,.55)' : 'rgba(240,200,140,.60)');
+              c.fillRect(wl, y - sh * .40, ww, sh * .80);
+              c.strokeStyle = (k === 'B' ? '#3f8ad0' : '#bc8a3c'); c.lineWidth = 2.6; c.lineCap = 'round';
+              c.beginPath(); c.moveTo(wl + ww, y - sh * .40); c.lineTo(wl + ww, y + sh * .40); c.stroke();
+              c.restore();
+            }
+            /* 못 따라간 만큼이 갇힌 공기다 */
+            var gp = E.clamp(st.y[k] / 96 - st.wet[k], 0, 1);
+            if (gp > .04) {
+              c.save();
+              c.fillStyle = 'rgba(255,255,255,.78)';
+              c.fillRect(wl + ww, y - sh * .40, gp * S2, sh * .80);
+              c.strokeStyle = 'rgba(181,50,47,.85)'; c.lineWidth = 2.4; c.setLineDash([5, 4]);
+              c.strokeRect(wl + ww, y - sh * .40, gp * S2, sh * .80);
+              c.restore();
+              if (gp * S2 > 26) label(c, wl + ww + gp * S2 / 2, y, '공기', '#b5322f', 11);
+            }
             c.save(); c.translate(x, top); c.rotate(-tilt);
-            drawCover(c, 0, 0, sw * .62);
+            drawCover(c, 0, 0, S2);
             c.restore();
             if (!st.drag && k === firstOpen) E.grab(c, x, top, sw * .32, t);
           }
@@ -4671,17 +4880,37 @@ function scWait() {
         label(c, w / 2, cy - 3, fmt(st.t), k5 >= 1 ? '#12a06a' : INK, 17);
         label(c, w / 2, cy + 14, '/ 5:00', 'rgba(24,19,34,.55)', 10);
 
-        /* 거름종이 — 자리는 늘 잡아 두고, 덮개 유리를 다 덮은 뒤에만 그린다 */
+        /* 거름종이 — 자리는 늘 잡아 두고, 덮개 유리를 다 덮은 뒤에만 그린다.
+           단추가 아니라 **끌어다 가장자리에 대고 있어야** 빨린다 */
         M.px = w * .86; M.py = h - 60;
+        var allBlot = st.blotN.B && st.blotN.C;
         if (st.cov.B >= 0 && st.cov.C >= 0) {
-          drawPaper(c, M.px, M.py, st.blot ? .4 : 1);
-          if (!st.blot) E.grab(c, M.px, M.py, 30, t);
-          chip(c, M.px, Math.min(M.py + 48, h - 20), st.blot ? '사용함' : '거름종이', st.blot ? '#e9e4f7' : '#fff8e6', 11);
+          var ppx = st.pdrag && st.pp ? st.pp.x : M.px;
+          var ppy = st.pdrag && st.pp ? st.pp.y : M.py;
+          var soakN = (st.blotN.B ? 1 : 0) + (st.blotN.C ? 1 : 0);
+          drawPaper(c, ppx, ppy, allBlot ? .45 : 1, soakN * .5);
+          if (!allBlot && !st.pdrag) E.grab(c, M.px, M.py, 30, t);
+          chip(c, M.px, Math.min(M.py + 48, h - 20),
+               allBlot ? '사용함' : '거름종이 ' + soakN + '/2',
+               allBlot ? '#e9e4f7' : '#fff8e6', 11);
+          /* 대고 있는 동안 차오르는 고리 */
+          ['B', 'C'].forEach(function (k) {
+            if (st.blotN[k] || !st.soak[k]) return;
+            var s0 = M.slot[k]; if (!s0) return;
+            c.save();
+            c.beginPath();
+            c.arc(s0.x, s0.y - sh * .58, 11, -Math.PI / 2,
+                  -Math.PI / 2 + E.clamp(st.soak[k] / SOAKT, 0, 1) * Math.PI * 2);
+            c.strokeStyle = '#12a06a'; c.lineWidth = 4; c.lineCap = 'round'; c.stroke();
+            c.restore();
+          });
         }
 
         E.hint(stage, k5 < 1 ? (st.run ? '기다리는 중… (' + st.speed + '배속)' : '타이머 시작을 누르세요')
-          : (st.cov.B < 0 || st.cov.C < 0) ? '덮개 유리를 천천히 아래로 끌어 내리세요'
-          : st.blot ? '표본 3장 완성' : '거름종이를 눌러 여분의 용액을 제거하세요');
+          : (st.cov.B < 0 || st.cov.C < 0) ? '덮개 유리를 천천히 아래로 끌어 내리세요 — 젖는 선이 따라오게'
+          : allBlot ? '표본 3장 완성'
+          : '거름종이를 끌어다 덮개 유리 가장자리에 대고 계세요 (' +
+            ((st.blotN.B ? 1 : 0) + (st.blotN.C ? 1 : 0)) + '/2)');
       });
       function fmt(s) { var m = Math.floor(s / 60), x = Math.floor(s % 60); return m + ':' + (x < 10 ? '0' : '') + x; }
       function mix(a, b, t) { return a.map(function (v, i) { return Math.round(E.lerp(v, b[i], E.clamp(t, 0, 1))); }); }
@@ -4691,13 +4920,12 @@ function scWait() {
       E.drag(cv.cv, {
         start: function (ev) {
           var p = cv.pt(ev);
-          if (st.blot === 0 && st.cov.B >= 0 && st.cov.C >= 0 && M.px &&
+          /* 거름종이를 **잡는다.** 한 번 누르는 것으로는 안 끝난다 */
+          if (!(st.blotN.B && st.blotN.C) && st.cov.B >= 0 && st.cov.C >= 0 && M.px &&
               E.dist(p.x, p.y, M.px, M.py) < 54) {
-            st.blot = 1; D.blot = 1; E.save(); E.buzz(16);
-            E.beep('whoosh'); E.kick();
-            E.burst(M.slot.B.x, M.slot.B.y, '#8fd0ff', 6, 1.6);
-            E.burst(M.slot.C.x, M.slot.C.y, '#ffd9a0', 6, 1.6);
-            E.toast('닦았다. 표본 셋. 현미경으로 간다.', 'good'); sync(); return;
+            st.pdrag = 1; st.pp = { x: p.x, y: p.y }; st.nagMid = 0;
+            E.beep('pick'); E.buzz(8);
+            return;
           }
           if (st.t < 300) return;
           ['B', 'C'].forEach(function (k) {
@@ -4710,6 +4938,7 @@ function scWait() {
           });
         },
         move: function (ev) {
+          if (st.pdrag) { st.pp = cv.pt(ev); return; }   /* 빨아들이는 계산은 그리기 쪽에서 */
           if (!st.drag) return;
           var p = cv.pt(ev), k = st.drag.k;
           st.y[k] = E.clamp(st.drag.v0 + (p.y - st.drag.y0), 0, 96);
@@ -4717,6 +4946,11 @@ function scWait() {
           if (st.y[k] >= 95.5) finish(k);
         },
         end: function () {
+          if (st.pdrag) {
+            /* 손을 떼도 빨아들인 만큼은 남긴다. 폰에서 손이 미끄러졌다고 처음부터 하면 가혹하다 */
+            st.pdrag = 0; st.pp = null; st.midT = 0;
+            return;
+          }
           if (!st.drag) return;
           var k = st.drag.k;
           /* 바닥까지 정확히 끌지 않아도 반 넘게 내렸으면 덮은 것으로 본다 */
@@ -4724,15 +4958,37 @@ function scWait() {
           st.drag = null;
         }
       });
+      /* 한 장을 다 닦았다. 둘을 다 닦아야 다음으로 */
+      function blotDone(k) {
+        if (st.blotN[k]) return;
+        st.blotN[k] = 1; st.soak[k] = 0;
+        D.blotN = { B: st.blotN.B, C: st.blotN.C };
+        D.blot = (st.blotN.B && st.blotN.C) ? 1 : 0;
+        st.blot = D.blot;
+        E.save(); E.buzz(16); E.beep('snap');
+        var s0 = M.slot[k];
+        E.burst(s0.x, s0.y, k === 'B' ? '#8fd0ff' : '#ffd9a0', 7, 1.6);
+        E.pop(s0.x, s0.y - M.sh * .8, '닦음', '#127a5a', true);
+        if (st.blotN.B && st.blotN.C) {
+          E.kick();
+          E.toast('둘 다 닦았다. 표본 셋. 현미경으로 간다.', 'good');
+        } else {
+          E.toast(k + ' 를 닦았다. 나머지 한 장도.', 'good');
+        }
+        sync();
+      }
+
       function finish(k) {
         if (!st.drag || st.cov[k] >= 0) return;
         var dt = (performance.now() - st.drag.t0) / 1000;
         var speed = st.y[k] / Math.max(.05, dt);
         st.y[k] = 96;
+        st.wetAt[k] = E.clamp(st.wet[k], 0, 1);
         st.cov[k] = speed > 700 ? 4 : speed > 380 ? 2 : speed > 200 ? 1 : 0;
+        if (st.cov[k] === 0) st.wet[k] = 1;
         D.cover[k] = st.cov[k]; E.save();
         st.drag = null;
-        st.ct[k] = st.tNow || 0;
+        st.ct[k] = performance.now() / 1000;
         E.buzz(st.cov[k] ? 45 : 15);
         var s2 = M.slot[k];
         if (st.cov[k] === 0) {
@@ -4742,7 +4998,8 @@ function scWait() {
           E.toast(k === 'B' && st.cov.C < 0 ? '좋다. 소리도 안 났다. C 도 그렇게.' : '좋다. 깨끗한 표본이다.', 'good');
         } else {
           E.beep('thud');
-          E.toast('급했다. 기포 ' + st.cov[k] + '개. 시야에 검은 동그라미로 남는다.', 'bad');
+          E.toast('급했다. 젖는 선이 못 따라와 공기가 갇혔다. 기포 ' + st.cov[k] +
+                  '개. 시야에 검은 동그라미로 남는다.', 'bad');
         }
         sync();
       }
@@ -4754,7 +5011,14 @@ function scWait() {
         '<div class="card"><h3>덮는 요령</h3>' +
         '<p>덮개 유리의 한쪽 끝을 먼저 용액에 대고 반대쪽을 <b>천천히</b> 내려놓습니다. ' +
         '급하게 떨어뜨리면 공기가 갇혀 현미경에서 <b>테두리가 두꺼운 검은 동그라미</b>로 보입니다.</p>' +
-        '<p class="muted">무대에서 끌어 내리는 속도가 그대로 반영됩니다. 0.5초쯤 걸리게 내리면 기포가 생기지 않습니다.</p></div>';
+        '<p>무대에서는 유리가 눕는 만큼 <b>젖는 선</b>이 반대쪽으로 쓸려 갑니다. ' +
+        '그 선이 공기를 밀어내는 것입니다. 급하게 내리면 <b>선이 못 따라가고 그 뒤에 공기가 갇힙니다.</b> ' +
+        '갇히는 순간이 화면에 하얀 띠로 보입니다.</p>' +
+        '<p class="muted">0.5초쯤 걸리게 내리면 선이 끝까지 따라옵니다. 기포 0.</p></div>' +
+        '<div class="card"><h3>거름종이</h3>' +
+        '<p>거름종이를 <b>끌어다 덮개 유리 가장자리에 대고 계세요.</b> 잠깐 대고 있어야 여분의 용액이 빨려 나갑니다. ' +
+        '잎 B와 잎 C를 <b>따로</b> 닦습니다.</p>' +
+        '<p class="muted">가운데를 누르면 잎이 눌립니다. 가장자리에 살짝 댑니다.</p></div>';
 
       var ctl = E.el('div', { cls: 'card' });
       ctl.appendChild(E.el('h3', { text: '타이머' }));
@@ -4785,16 +5049,18 @@ function scWait() {
       stt.appendChild(E.el('h3', { text: '표본 상태' }));
       var l1 = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: '5분 기다리기' }));
       var l2 = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: '잎 B와 C에 덮개 유리 덮기' }));
-      var l3 = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: '거름종이로 여분 제거' }));
+      var l3 = E.el('div', { cls: 'chk' }, E.el('span', { cls: 'bx' }), E.el('span', { text: '거름종이로 여분 제거 (0/2)' }));
       stt.appendChild(l1); stt.appendChild(l2); stt.appendChild(l3);
       var bubMsg = E.el('div'); stt.appendChild(bubMsg);
       var row2 = E.el('div', { cls: 'btnrow' });
       var rb = E.el('button', { cls: 'btn ghost', type: 'button', text: '다시 덮기' });
       rb.addEventListener('click', function () {
         st.cov = { B: -1, C: -1 }; st.y = { B: 0, C: 0 }; st.blot = 0; st.ct = {};
+        st.wet = { B: 0, C: 0 }; st.wetAt = { B: 0, C: 0 };
+        st.blotN = { B: 0, C: 0 }; st.soak = { B: 0, C: 0 }; st.pdrag = 0; st.pp = null;
         bubPos = { B: [], C: [] };
         E.beep('whoosh'); E.toast('새 덮개 유리. 이번엔 천천히.');
-        D.cover = { B: -1, C: -1 }; D.blot = 0; E.save(); sync();
+        D.cover = { B: -1, C: -1 }; D.blot = 0; D.blotN = { B: 0, C: 0 }; E.save(); sync();
       });
       row2.appendChild(rb); stt.appendChild(row2);
       panel.appendChild(stt);
@@ -4804,24 +5070,27 @@ function scWait() {
         var done5 = st.t >= 300, covered = st.cov.B >= 0 && st.cov.C >= 0;
         l1.classList.toggle('done', done5);
         l2.classList.toggle('done', covered);
-        l3.classList.toggle('done', !!st.blot);
+        var bn = (st.blotN.B ? 1 : 0) + (st.blotN.C ? 1 : 0);
+        l3.classList.toggle('done', bn === 2);
+        l3.lastChild.textContent = '거름종이로 여분 제거 (' + bn + '/2)';
         var nb = (Math.max(0, st.cov.B) + Math.max(0, st.cov.C));
         bubMsg.innerHTML = !covered ? ''
           : nb === 0 ? '<div class="why">기포 <b>0개</b>. 아주 좋은 표본입니다.</div>'
           : '<div class="why bad">기포 <b>' + nb + '개</b>. 시야에 검은 동그라미로 나타나 관찰을 방해합니다. ' +
             '그대로 진행할 수도 있고 <b>다시 덮기</b>로 고칠 수도 있습니다.</div>';
         var qok = !!(D._ans[Q.id] && D._ans[Q.id].ok);
-        E.gate(done5 && covered && st.blot && qok,
+        E.gate(done5 && covered && bn === 2 && qok,
           !done5 ? '5분이 지나야 덮개 유리를 덮습니다'
             : !covered ? '잎 B와 C에 덮개 유리를 덮으세요'
-            : !st.blot ? '거름종이로 여분의 용액을 제거하세요' : '확인 문항을 풀어야 넘어갑니다');
+            : bn < 2 ? '거름종이를 끌어다 덮개 유리 가장자리에 대고 계세요 (' + bn + '/2)'
+            : '확인 문항을 풀어야 넘어갑니다');
       }
       sync();
       this.unmount = function () { clearInterval(tick); D.waited = st.t; E.save(); };
     }
   };
 }
-function drawPaper(c, x, y, a) {
+function drawPaper(c, x, y, a, wet) {
   c.save(); c.translate(x, y); c.globalAlpha = a;
   c.fillStyle = 'rgba(24,19,34,.3)';
   c.beginPath();
@@ -4833,6 +5102,17 @@ function drawPaper(c, x, y, a) {
   c.beginPath(); c.moveTo(12, -32); c.lineTo(12, -18); c.lineTo(26, -18); c.stroke();
   c.strokeStyle = 'rgba(24,19,34,.35)'; c.lineWidth = 1.6;
   [-6, 4, 14, 24].forEach(function (yy) { c.beginPath(); c.moveTo(-15, yy); c.lineTo(17, yy); c.stroke(); });
+  /* 빨아들인 만큼 아래쪽이 젖어 번진다 */
+  if (wet) {
+    c.save();
+    c.beginPath();
+    c.moveTo(-24, -32); c.lineTo(12, -32); c.lineTo(26, -18); c.lineTo(26, 32); c.lineTo(-24, 32); c.closePath();
+    c.clip();
+    c.fillStyle = 'rgba(120,170,205,' + (.18 + wet * .30).toFixed(3) + ')';
+    c.beginPath();
+    c.ellipse(1, 34, 26, 8 + wet * 18, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
   c.restore();
 }
 
@@ -5684,72 +5964,131 @@ function scAnimal() {
            '<span class="hl">세 용액을 모두</span> 눌러 비교해 보세요.',
     mount: function (stage, panel) {
       var chl = bigChl();
-      var st = { sel: 'iso' };
+      /* 적혈구는 세 박자다 — 부푼다(1.2초) → 터진다 → 막만 남는다.
+         식물세포는 세 용액에서 **모양이 서로 달라야** 한다. 등장액에 얇은 틈을 준다 */
+      var st = { sel: 'iso', t0: -99, fired: 0, p: .14, bow: 0, p0: .14, b0: 0, pT: .14, bT: 0 };
+      var SW_T = 1.2, AF_T = 0.8;
+      function nowS() { return performance.now() / 1000; }
       var cv = E.canvas(stage);
+      function pick(k) {
+        st.sel = k; st.fired = 0; st.t0 = nowS();
+        D.tonic[k] = 1; E.save();
+        st.p0 = st.p; st.b0 = st.bow;
+        st.pT = k === 'hyper' ? .85 : k === 'iso' ? .14 : 0;
+        st.bT = k === 'hypo' ? 1 : 0;
+        E.beep('pick');
+      }
       cv.on(function (c, w, h, t) {
         E.dbg = { n: 'animal', st: st };
+        /* 모양이 바뀌는 것도, 터지는 것도 **벽시계**로 센다.
+           쌓아 가며 다가가면 그린 횟수에 따라 값이 달라진다(헤드리스에서 실제로 걸렸다).
+           고른 뒤 지난 시간만 보고 **정확히** 정한다 */
+        var wn = nowS();
+        var mk = E.clamp((wn - st.t0) / .35, 0, 1);
+        var me = mk * mk * (3 - 2 * mk);
+        st.p = st.p0 + (st.pT - st.p0) * me;
+        st.bow = st.b0 + (st.bT - st.b0) * me;
         var cy = h * .42;
         var cx1 = w * .28, cx2 = w * .72;
-        /* 적혈구 */
+        /* ---- 적혈구 — 부푼다 → 터진다 → 막만 남는다 ---- */
         var R = Math.min(w * .11, h * .18);
-        var burst = st.sel === 'hypo';
+        var ph0 = st.sel === 'hypo' ? Math.max(0, wn - st.t0) : 0;
+        var swl = st.sel === 'hypo' ? E.clamp(ph0 / SW_T, 0, 1) : 0;   /* 부푼 정도 */
+        var popped = st.sel === 'hypo' && ph0 >= SW_T;
+        var af = popped ? E.clamp((ph0 - SW_T) / AF_T, 0, 1) : 0;      /* 터진 뒤 흩어지는 정도 */
+        var crn = st.sel === 'hyper' ? 1 : 0;                          /* 쪼그라듦 */
+        if (popped && !st.fired) {
+          st.fired = 1;
+          E.beep('thud'); E.buzz(55); E.kick();
+          E.burst(cx1, cy, '#d65656', 18, 3.0);
+        }
         c.save();
         c.translate(cx1, cy);
-        if (st.sel === 'hyper') {
-          /* 쪼그라든 적혈구 */
+        var Rr = R * (1 + .42 * swl);
+        if (popped) {
+          /* 흩어지는 헤모글로빈 구름 */
+          c.save();
+          c.fillStyle = 'rgba(214,86,86,' + ((1 - af) * .30).toFixed(3) + ')';
+          c.beginPath(); c.arc(0, 0, Rr * (1 + af * 2.2), 0, Math.PI * 2); c.fill();
+          c.restore();
+          for (var k = 0; k < 16; k++) {
+            var ang = k / 16 * Math.PI * 2 + k * .7;
+            var dd = Rr * (.6 + af * 2.6) + Math.sin(t * 2 + k) * 3;
+            c.beginPath();
+            c.arc(Math.cos(ang) * dd, Math.sin(ang) * dd * .92, 3.6 * (1 - af * .5), 0, Math.PI * 2);
+            c.fillStyle = 'rgba(214,86,86,' + Math.max(0, 1 - af).toFixed(2) + ')'; c.fill();
+          }
+          /* 남은 막 — 빈 껍데기 */
           c.beginPath();
-          for (var i = 0; i <= 24; i++) {
-            var a = i / 24 * Math.PI * 2;
-            var rr2 = R * (.66 + .10 * Math.sin(a * 7));
-            var x = Math.cos(a) * rr2, y = Math.sin(a) * rr2 * .9;
+          c.ellipse(0, 0, Rr * (1 + af * .10), Rr * .92 * (1 + af * .10), 0, 0, Math.PI * 2);
+          c.fillStyle = 'rgba(255,255,255,.10)'; c.fill();
+          c.strokeStyle = 'rgba(24,19,34,' + (.65 - af * .25).toFixed(2) + ')';
+          c.lineWidth = 2.2; c.setLineDash([7, 5]); c.stroke();
+          c.setLineDash([]);
+        } else {
+          c.beginPath();
+          for (var i = 0; i <= 28; i++) {
+            var a = i / 28 * Math.PI * 2;
+            var rr2 = Rr * (1 - crn * (.34 - .10 * Math.sin(a * 7)));
+            var x = Math.cos(a) * rr2, y = Math.sin(a) * rr2 * (.92 - .02 * crn);
             i ? c.lineTo(x, y) : c.moveTo(x, y);
           }
           c.closePath();
-        } else {
-          var Rr = burst ? R * 1.12 : R;
-          c.beginPath(); c.ellipse(0, 0, Rr, Rr * .92, 0, 0, Math.PI * 2);
-        }
-        c.fillStyle = burst ? 'rgba(214,86,86,.45)' : '#d65656'; c.fill();
-        c.strokeStyle = INK; c.lineWidth = 2.6; c.lineJoin = 'round'; c.stroke();
-        if (!burst && st.sel !== 'hyper') {
-          c.beginPath(); c.ellipse(0, 0, R * .45, R * .40, 0, 0, Math.PI * 2);
-          c.fillStyle = 'rgba(120,30,30,.35)'; c.fill();
-        }
-        if (burst) {
-          for (var k = 0; k < 10; k++) {
-            var ang = k / 10 * Math.PI * 2 + t * .4;
-            var dd = R * (1.4 + .5 * Math.sin(t * 2 + k));
-            c.beginPath(); c.arc(Math.cos(ang) * dd, Math.sin(ang) * dd, 3.5, 0, Math.PI * 2);
-            c.fillStyle = 'rgba(214,86,86,.75)'; c.fill();
+          c.fillStyle = '#d65656'; c.fill();
+          c.strokeStyle = INK; c.lineWidth = 2.6 - swl * .9; c.lineJoin = 'round'; c.stroke();
+          /* 가운데 오목한 자리 — 부풀수록 메워진다 */
+          if (!crn) {
+            c.beginPath(); c.ellipse(0, 0, R * .45, R * .40, 0, 0, Math.PI * 2);
+            c.fillStyle = 'rgba(120,30,30,' + (.35 * (1 - swl)).toFixed(3) + ')'; c.fill();
+          }
+          /* 터지기 직전 — 막이 팽팽해 떨린다 */
+          if (swl > .75) {
+            c.save(); c.globalAlpha = (swl - .75) / .25;
+            c.strokeStyle = '#ff8f8f'; c.lineWidth = 3; c.setLineDash([5, 6]);
+            c.beginPath(); c.ellipse(0, 0, Rr + 4, Rr * .92 + 4, 0, 0, Math.PI * 2); c.stroke();
+            c.restore(); c.setLineDash([]);
           }
         }
         c.restore();
         chip(c, cx1, cy + R + 32, '적혈구 (동물세포)', '#ffd6d6', 12);
         label(c, cx1, cy + R + 56,
-          st.sel === 'hypo' ? '부풀다가 터진다 — 용혈' : st.sel === 'iso' ? '모양이 변하지 않는다' : '쪼그라든다',
+          st.sel !== 'hypo' ? (st.sel === 'iso' ? '모양이 변하지 않는다' : '쪼그라든다')
+            : !popped ? '물이 들어와 부푼다'
+            : af < .6 ? '터졌다 — 용혈' : '남은 막 — 적혈구 그림자',
           'rgba(190,214,240,.85)', 12);
+        if (st.sel === 'hypo' && af >= .9) label(c, cx1, cy + R + 74, '무대를 누르면 다시 봅니다',
+          'rgba(150,178,210,.65)', 11);
 
-        /* 식물세포 */
-        var p = st.sel === 'hyper' ? .85 : 0;
+        /* ---- 식물세포 — 저장액은 벽이 휘고, 등장액은 얇은 틈, 고장액은 원형질분리 ---- */
         var W = Math.min(w * .30, 220), H = W * (CH / CW) * 1.7;
-        drawBigCell(c, cx2, cy, W, H, p, chl, { gap: p ? '#efeccd' : '#dbe9d2' });
-        /* 저장액에서는 세포 안의 용액이 세포벽을 밀어낸다 — 팽압 */
-        if (st.sel === 'hypo') {
-          var pu = .6 + .4 * Math.sin(t * 2);
+        var bow = st.bow * W * .035;
+        drawBigCell(c, cx2, cy, W, H, st.p, chl,
+                    { gap: st.p > .4 ? '#efeccd' : '#dbe9d2', bow: bow });
+        if (st.bow > .05) {
+          /* 안에서 벽을 미는 힘(팽압)과, 벽이 되미는 힘 */
+          var pu = (.55 + .45 * Math.sin(t * 2)) * st.bow;
           [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (v) {
-            var ex = cx2 + v[0] * (W / 2 - 6), ey = cy + v[1] * (H / 2 - 6);
-            var sx2 = cx2 + v[0] * (W / 2 - 30), sy2 = cy + v[1] * (H / 2 - 26);
-            c.save();
-            c.globalAlpha = pu;
-            c.strokeStyle = '#3f8ad0'; c.lineWidth = 2.4; c.lineCap = 'round';
+            var half = v[0] ? W / 2 + bow : H / 2 + bow;
+            var ex = cx2 + v[0] * (half - 4), ey = cy + v[1] * (half - 4);
+            var sx2 = cx2 + v[0] * (half - 30), sy2 = cy + v[1] * (half - 24);
+            c.save(); c.globalAlpha = pu;
+            c.strokeStyle = '#3f8ad0'; c.lineWidth = 3; c.lineCap = 'round';
             c.beginPath(); c.moveTo(sx2, sy2); c.lineTo(ex, ey); c.stroke();
+            c.beginPath(); c.arc(ex, ey, 3.6, 0, Math.PI * 2); c.fillStyle = '#3f8ad0'; c.fill();
+            /* 벽이 되미는 짧은 화살표 */
+            c.strokeStyle = '#7a5c2e'; c.lineWidth = 2.6;
             c.beginPath();
-            c.arc(ex, ey, 3.2, 0, Math.PI * 2);
-            c.fillStyle = '#3f8ad0'; c.fill();
+            c.moveTo(cx2 + v[0] * (half + 13), cy + v[1] * (half + 13));
+            c.lineTo(cx2 + v[0] * (half + 4), cy + v[1] * (half + 4));
+            c.stroke();
             c.restore();
           });
-          label(c, cx2, cy, '팽압', 'rgba(45,110,170,.9)', 12);
+          c.save(); c.globalAlpha = st.bow;
+          label(c, cx2, cy - 9, '팽압', 'rgba(45,110,170,.95)', 12);
+          label(c, cx2, cy + 9, '↔ 세포벽이 되민다', 'rgba(122,92,46,.95)', 10.5);
+          c.restore();
         }
+        if (st.sel === 'iso') label(c, cx2, cy, '막과 벽 사이에 힘이 없다', 'rgba(90,120,95,.9)', 11);
         chip(c, cx2, cy + H / 2 + 28, '검정말 잎세포 (식물세포)', '#dff3d6', 12);
         label(c, cx2, cy + H / 2 + 52,
           st.sel === 'hypo' ? '팽윤 — 세포벽이 있어 터지지 않는다'
@@ -5759,7 +6098,7 @@ function scAnimal() {
         /* 물의 이동 화살표 */
         var dir = st.sel === 'hypo' ? 1 : st.sel === 'hyper' ? -1 : 0;
         if (dir) {
-          [cx1 - R - 34, cx2 - W / 2 - 34].forEach(function (bx) {
+          [cx1 - R - 34, cx2 - W / 2 - bow - 34].forEach(function (bx) {
             for (var i2 = 0; i2 < 4; i2++) {
               var ph = (t * .7 + i2 / 4) % 1;
               var xx = dir > 0 ? bx + ph * 30 : bx + 30 - ph * 30;
@@ -5771,7 +6110,14 @@ function scAnimal() {
         chip(c, w / 2, 26,
           SOL.filter(function (s) { return s.k === st.sel; })[0].n + ' 에 넣었을 때', '#fff8e6', 13.5);
         var n = SOL.filter(function (s) { return D.tonic[s.k]; }).length;
-        E.hint(stage, '살펴본 용액 ' + n + '/3');
+        E.hint(stage, st.sel === 'hypo' && popped
+          ? '살펴본 용액 ' + n + '/3 — 무대를 누르면 터지는 것을 다시 봅니다'
+          : '살펴본 용액 ' + n + '/3');
+      });
+      /* 무대를 누르면 다시 본다 */
+      cv.cv.addEventListener('pointerdown', function () {
+        if (st.sel !== 'hypo') return;
+        st.t0 = nowS(); st.fired = 0; E.beep('tick');
       });
 
       panel.innerHTML =
@@ -5784,7 +6130,7 @@ function scAnimal() {
       SOL.forEach(function (s) {
         var b = E.el('button', { cls: 'btn' + (st.sel === s.k ? ' fill' : ''), type: 'button', text: s.n });
         b.addEventListener('click', function () {
-          st.sel = s.k; D.tonic[s.k] = 1; E.save();
+          pick(s.k);
           Object.keys(bs).forEach(function (k) { bs[k].classList.remove('fill'); });
           b.classList.add('fill');
           sync();
@@ -5814,6 +6160,7 @@ function scAnimal() {
         E.gate(all && qok, all ? '확인 문항을 풀어야 넘어갑니다' : '세 용액을 모두 눌러 보세요');
       }
       D.tonic[st.sel] = 1; E.save();
+      st.p = st.pT; st.bow = st.bT;
       sync();
     }
   };
@@ -5832,7 +6179,8 @@ function scResult() {
   ];
   return {
     id: 'result', chap: '결과 정리', name: '결과 및 정리',
-    guide: '세 표본에서 <b>물이 어느 쪽으로 이동했는지</b>와 <b>세포가 어떻게 변했는지</b>를 골라 표를 채우세요.',
+    guide: '세 표본에서 <b>물이 어느 쪽으로 이동했는지</b>와 <b>세포가 어떻게 변했는지</b>를 골라 표를 채우고, ' +
+           '이어서 <span class="hl">결과 및 정리 2</span>를 써 보세요.',
     mount: function (stage, panel) {
       var cells = leafField();
       var cv = E.canvas(stage);
@@ -5862,8 +6210,9 @@ function scResult() {
         E.hint(stage, '세 표본의 관찰 결과 — ' + E.where() + ' 표를 채우세요');
       });
 
-      panel.innerHTML = '<div class="card"><h3>결과 및 정리 2</h3>' +
-        '<p>각 표본에서 세포막을 통한 <b>물의 이동</b>과 <b>세포의 변화</b>를 고르세요.</p></div>';
+      panel.innerHTML = '<div class="card"><h3>결과 및 정리</h3>' +
+        '<p>각 표본에서 세포막을 통한 <b>물의 이동</b>과 <b>세포의 변화</b>를 고르세요. ' +
+        '표를 채우면 아래에서 <b>결과 및 정리 2</b>를 씁니다.</p></div>';
 
       var box = E.el('div', { cls: 'card' });
       box.appendChild(E.el('h3', { text: '표 채우기' }));
@@ -5884,6 +6233,22 @@ function scResult() {
         box.appendChild(wrap);
       });
       var fb = E.el('div'); box.appendChild(fb); panel.appendChild(box);
+
+      /* 「결과 및 정리 2」 서술은 **표 바로 아래**에 둔다.
+         마무리 장면에 있던 것을 옮겼다. 실험이 끝나고 선택 문항 둘을 지난 뒤에 쓰면
+         무엇에 대해 쓰는 것인지 멀어진다. 무대에 잎 A/B/C 시야가 떠 있으니 보면서 쓴다 */
+      E.write(panel, {
+        id: 'os_w3',
+        title: '결과 및 정리 2',
+        q: '잎 C의 세포에서 일어난 변화를 <b>세포막을 통한 물의 이동</b>으로 설명해 보자.',
+        ph: '어느 쪽 용액의 삼투압이 더 높은지, 물이 어느 쪽으로 이동했는지, 그 결과 세포가 어떻게 되었는지 써 보세요.',
+        model: '10 % 소금물은 세포 안의 용액보다 삼투압이 높은 <b>고장액</b>이다. 소금은 세포막을 그대로 ' +
+          '통과하지 못하므로, 삼투가 일어나 <b>물이 세포막을 통해 세포 밖으로</b> 빠져나간다. ' +
+          '그 결과 세포질의 부피가 줄어들어 <b>세포막이 세포벽에서 떨어지는 원형질분리</b>가 일어난다. ' +
+          '세포벽에는 물과 용질이 지나갈 수 있는 틈이 있으므로, 세포막이 물러난 자리는 바깥에 있던 ' +
+          '소금물로 채워진다.',
+        onchange: function () { sync(); }
+      });
 
       var tip = E.el('div', { cls: 'card' });
       tip.innerHTML = '<h3>헷갈리기 쉬운 곳</h3>' +
@@ -5909,11 +6274,16 @@ function scResult() {
               '세포질의 부피가 줄고 세포막이 세포벽에서 떨어졌습니다.</div>'
           : got < all ? '<div class="why">아직 다 고르지 않았습니다. (' + got + '/' + all + ')</div>'
           : '<div class="why bad">아직 맞지 않습니다. 어느 쪽이 더 묽은 용액인지 다시 따져 보세요.</div>';
+        var txt = ((D._ans.os_w3 || {}).text || '').trim();
+        var wok = txt.length >= 15;
         if (ok && got === all) E.note('결과 및 정리',
-          '잎 A (처리 없음) — 물의 순 이동 거의 없음 · 세포막이 세포벽에 붙어 있음\n' +
-          '잎 B (증류수, 저장액) — 물이 세포 안으로 · 세포막이 세포벽에 붙어 있음\n' +
-          '잎 C (10 % 소금물, 고장액) — 물이 세포 밖으로 · 원형질분리');
-        E.gate(ok && got === all, '여섯 칸을 모두 바르게 고르세요');
+          '잎 A (처리 없음) — 물의 순 이동 거의 없음, 세포막이 세포벽에 붙어 있음\n' +
+          '잎 B (증류수, 저장액) — 물이 세포 안으로, 세포막이 세포벽에 붙어 있음\n' +
+          '잎 C (10 % 소금물, 고장액) — 물이 세포 밖으로, 원형질분리' +
+          (wok ? '\n결과 및 정리 2. ' + txt : ''));
+        E.gate(ok && got === all && wok,
+          !(ok && got === all) ? '여섯 칸을 모두 바르게 고르세요'
+            : '결과 및 정리 2를 15자 이상 써 주세요 (지금 ' + txt.length + '자)');
       }
       sync();
     }
@@ -5958,38 +6328,71 @@ function scWrap() {
   };
   return {
     id: 'wrap', chap: '마무리', name: '마무리 확인',
-    guide: '마지막입니다. 두 문항을 풀고 <b>결과 및 정리 2</b>를 직접 써 보면 실험이 끝납니다.',
+    guide: '마지막입니다. <b>두 문항</b>을 풀면 실험이 끝납니다. 무대의 <span class="hl">짚신벌레</span>를 눌러 두 환경을 견주어 보고 수축포 서술을 써 보세요.',
     mount: function (stage, panel) {
+      /* 무대가 좁으니 둘을 같이 띄우지 않고 칩으로 갈아 끼운다.
+         Q2 를 풀면 저절로 짚신벌레로 넘어간다 — 수축포 서술의 힌트가 여기에 있다 */
+      var st = { view: 'u', env: 'hyper', hit: [], turned: 0, t0: 0 };
       var cv = E.canvas(stage);
       cv.on(function (c, w, h, t) {
-        E.dbg = { n: 'wrap' };
-        drawUTube(c, w / 2, h * .52, Math.min(w * .34, h * .42), t);
-        label(c, w / 2, h - 26, 'U자관 — 반투과성막을 사이에 둔 삼투', 'rgba(150,178,210,.75)', 12);
+        E.dbg = { n: 'wrap', st: st };
+        st.hit = [];
+        var cw = Math.min(96, w * .24), cy0 = 20;
+        [['u', 'U자관'], ['p', '짚신벌레']].forEach(function (v, i) {
+          var x = w / 2 + (i - .5) * (cw + 8);
+          chip(c, x, cy0, v[1], st.view === v[0] ? '#ffd23f' : '#fff8e6', 12);
+          st.hit.push({ t: 'view', k: v[0], x: x, y: cy0, w: cw, h: 26 });
+        });
+        if (st.view === 'u') {
+          drawUTube(c, w / 2, h * .54, Math.min(w * .32, h * .40), t);
+          label(c, w / 2, h - 26, 'U자관 — 반투과성막을 사이에 둔 삼투', 'rgba(150,178,210,.75)', 12);
+        } else {
+          var fast = st.env === 'hypo';
+          drawParamecium(c, w / 2, h * .43, Math.min(w * .44, h * .46), t, fast);
+          /* 환경 고르기 — 무대에서 손으로 */
+          var by = h - 52, bw = Math.min(104, w * .28);
+          [['hyper', '고장액'], ['hypo', '저장액']].forEach(function (v, i) {
+            var x = w / 2 + (i - .5) * (bw + 10);
+            chip(c, x, by, v[1], st.env === v[0] ? '#ffd23f' : '#fff8e6', 12.5);
+            st.hit.push({ t: 'env', k: v[0], x: x, y: by, w: bw, h: 28 });
+          });
+          label(c, w / 2, h - 22,
+            fast ? '물이 많이 들어온다 — 수축포가 빠르게 뛴다'
+                 : '물이 거의 안 들어온다 — 수축포가 느리게 뛴다',
+            'rgba(150,178,210,.85)', 12);
+        }
+        E.hint(stage, st.view === 'u'
+          ? '두 문항을 풀고, 짚신벌레를 눌러 수축포를 살펴보세요'
+          : '고장액과 저장액을 모두 눌러 수축포가 뛰는 빠르기를 견주어 보세요 (' +
+            ((D.para.hyper ? 1 : 0) + (D.para.hypo ? 1 : 0)) + '/2)');
+      });
+      cv.cv.addEventListener('pointerdown', function (ev) {
+        var p = cv.pt(ev);
+        for (var i = 0; i < st.hit.length; i++) {
+          var g = st.hit[i];
+          if (Math.abs(p.x - g.x) > g.w / 2 + 8 || Math.abs(p.y - g.y) > g.h / 2 + 8) continue;
+          if (g.t === 'view') { st.view = g.k; st.turned = 1; E.beep('tick'); }
+          else { st.env = g.k; D.para[g.k] = 1; E.save(); E.beep('pick'); sync(); }
+          return;
+        }
       });
 
       panel.innerHTML = '<div class="card"><h3>마무리 확인</h3>' +
-        '<p class="muted">두 선택 문항을 풀고, 아래 서술 칸을 채우면 마칠 수 있습니다.</p></div>';
+        '<p class="muted">두 선택 문항을 풀면 마칠 수 있습니다. ' +
+        '수축포 서술은 무대의 <b>짚신벌레</b>를 눌러 두 환경을 견주어 본 뒤에 쓰세요.</p></div>';
       var h1 = E.el('div'); panel.appendChild(h1); E.quiz(h1, Q1, sync);
       var h2 = E.el('div'); panel.appendChild(h2); E.quiz(h2, Q2, sync);
 
-      E.write(panel, {
-        id: 'os_w3',
-        title: '결과 및 정리 2',
-        q: '잎 C의 세포에서 일어난 변화를 <b>세포막을 통한 물의 이동</b>으로 설명해 보자.',
-        ph: '어느 쪽 용액의 삼투압이 더 높은지, 물이 어느 쪽으로 이동했는지, 그 결과 세포가 어떻게 되었는지 써 보세요.',
-        model: '10 % 소금물은 세포 안의 용액보다 삼투압이 높은 <b>고장액</b>이다. 소금은 세포막을 그대로 ' +
-          '통과하지 못하므로, 삼투가 일어나 <b>물이 세포막을 통해 세포 밖으로</b> 빠져나간다. ' +
-          '그 결과 세포질의 부피가 줄어들어 <b>세포막이 세포벽에서 떨어지는 원형질분리</b>가 일어난다. ' +
-          '세포벽에는 물과 용질이 지나갈 수 있는 틈이 있으므로, 세포막이 물러난 자리는 바깥에 있던 ' +
-          '소금물로 채워진다.',
-        onchange: sync
-      });
       E.write(panel, {
         id: 'os_w4',
         title: '과학 역량 기르기 (교과서 45쪽)',
         q: '짚신벌레는 몸속 수분량을 조절하기 위해 몸 밖으로 물을 내보내는 <b>수축포</b>를 가진다. ' +
            '고장액 환경과 저장액 환경에서 짚신벌레의 수축포가 작동하는 속도는 각각 어떻게 다를지 설명해 보자.',
-        ph: '어느 환경에서 물이 몸 안으로 더 많이 들어올지 생각해 보세요.',
+        ph: '무대에서 두 환경을 견주어 본 뒤, 왜 그렇게 다른지 물의 이동으로 써 보세요.',
+        need: function () {
+          return (D.para.hyper && D.para.hypo) ? null
+            : '무대에서 짚신벌레를 열어 고장액과 저장액을 모두 눌러 보세요';
+        },
         model: '<b>저장액</b> 환경에서는 몸 밖의 물의 농도가 몸 안보다 높으므로 삼투가 일어나 물이 몸 안으로 ' +
           '많이 들어온다. 들어온 물을 계속 내보내야 하므로 수축포는 <b>빠르게</b> 작동한다. ' +
           '반대로 <b>고장액</b> 환경에서는 물이 몸 안으로 거의 들어오지 않거나 오히려 몸 밖으로 빠져나가므로, ' +
@@ -6016,22 +6419,97 @@ function scWrap() {
 
       function sync() {
         var a = (D._ans.os_w1 || {}).ok, b = (D._ans.os_w2 || {}).ok;
-        var c3 = ((D._ans.os_w3 || {}).text || '').trim().length >= 15;
-        if (a && b && c3) {
+        /* 두 번째 문항을 풀면 무대를 짚신벌레로 돌려 둔다. 다음에 쓸 것이 그것이다 */
+        if (b && !st.turned) { st.turned = 1; st.view = 'p'; }
+        if (a && b) {
           E.note('마무리 확인',
             '1. U자관 — 물이 설탕 농도가 낮은 쪽에서 높은 쪽으로 이동해 수면 높이가 달라진다\n' +
-            '2. 식물세포를 고장액에 넣었을 때 → 원형질분리\n' +
-            '결과 및 정리 2. ' + ((D._ans.os_w3 || {}).text || '').trim());
+            '2. 식물세포를 고장액에 넣었을 때 → 원형질분리');
           var s4 = ((D._ans.os_w4 || {}).text || '').trim();
           if (s4) E.note('과학 역량 기르기', s4);
         }
-        E.gate(!!(a && b && c3),
-          c3 ? '두 선택 문항을 풀어야 마칠 수 있습니다' : '결과 및 정리 2를 15자 이상 써 주세요');
+        E.gate(!!(a && b), '두 선택 문항을 풀어야 마칠 수 있습니다');
       }
       sync();
     }
   };
 }
+/* 짚신벌레 — 수축포 둘이 물을 받아 차다가 몸 밖으로 팍 비운다.
+   저장액에서는 물이 많이 들어와 빠르게, 고장액에서는 느리게 뛴다. */
+function drawParamecium(c, cx, cy, s, t, fast) {
+  var per = fast ? 1.5 : 5.2;                 /* 한 번 차고 비우는 데 걸리는 시간 */
+  var ph = (t % per) / per;
+  var fill = ph < .86 ? ph / .86 : 0;         /* 차다가 뚝 비운다 */
+  var spurt = ph >= .86 ? (ph - .86) / .14 : 0;
+  c.save(); c.translate(cx, cy); c.scale(s / 150, s / 150);
+  /* 들어오는 물 */
+  var nDrop = fast ? 10 : 2;
+  for (var i = 0; i < nDrop; i++) {
+    var a = (i / nDrop) * Math.PI * 2 + .3;
+    var q = ((t * (fast ? .9 : .35) + i / nDrop) % 1);
+    var rOut = 150 - q * 46;
+    c.beginPath();
+    c.arc(Math.cos(a) * rOut * .92, Math.sin(a) * rOut * .52, 4, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(140,200,255,' + (.9 - Math.abs(q - .5) * 1.2).toFixed(2) + ')'; c.fill();
+  }
+  /* 몸통 — 슬리퍼 모양 */
+  c.beginPath();
+  c.moveTo(-104, 4);
+  c.bezierCurveTo(-96, -44, -20, -58, 34, -46);
+  c.bezierCurveTo(86, -34, 108, -6, 100, 16);
+  c.bezierCurveTo(92, 40, 30, 52, -22, 44);
+  c.bezierCurveTo(-72, 36, -110, 26, -104, 4);
+  c.closePath();
+  c.fillStyle = 'rgba(24,19,34,.28)';
+  c.save(); c.translate(4, 6); c.fill(); c.restore();
+  c.fillStyle = '#cfe6f6'; c.fill();
+  c.strokeStyle = INK; c.lineWidth = 4; c.lineJoin = 'round'; c.stroke();
+  /* 섬모 */
+  c.strokeStyle = 'rgba(24,19,34,.55)'; c.lineWidth = 2.2; c.lineCap = 'round';
+  for (var k = 0; k < 26; k++) {
+    var u = k / 26 * Math.PI * 2;
+    var px = Math.cos(u) * 100, py = Math.sin(u) * 48 - 2;
+    var wv = Math.sin(t * (fast ? 7 : 3) + k * .7) * 4;
+    c.beginPath(); c.moveTo(px, py);
+    c.lineTo(px * 1.13 + wv, py * 1.20 + wv * .4);
+    c.stroke();
+  }
+  /* 핵 */
+  c.beginPath(); c.ellipse(-6, -2, 20, 13, -.1, 0, Math.PI * 2);
+  c.fillStyle = '#9fbcd2'; c.fill(); c.strokeStyle = 'rgba(24,19,34,.6)'; c.lineWidth = 2.4; c.stroke();
+  /* 수축포 둘 — 차올랐다가 팍 */
+  [[-58, -12], [58, 8]].forEach(function (v, idx) {
+    var r = 6 + fill * 20;
+    c.beginPath(); c.arc(v[0], v[1], r, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(110,190,245,.85)'; c.fill();
+    c.strokeStyle = INK; c.lineWidth = 3; c.stroke();
+    /* 방사관 */
+    c.strokeStyle = 'rgba(70,140,200,.75)'; c.lineWidth = 2;
+    for (var m = 0; m < 6; m++) {
+      var aa = m / 6 * Math.PI * 2 + idx;
+      c.beginPath();
+      c.moveTo(v[0] + Math.cos(aa) * (r + 2), v[1] + Math.sin(aa) * (r + 2));
+      c.lineTo(v[0] + Math.cos(aa) * (r + 13), v[1] + Math.sin(aa) * (r + 13));
+      c.stroke();
+    }
+    /* 비우는 순간 — 몸 밖으로 뿜는다 */
+    if (spurt > 0) {
+      var sgn = v[0] < 0 ? -1 : 1;
+      for (var n2 = 0; n2 < 5; n2++) {
+        var dd = 26 + spurt * 58 + n2 * 7;
+        c.beginPath();
+        c.arc(v[0] + sgn * dd, v[1] - 18 - n2 * 3, 4.4 * (1 - spurt * .6), 0, Math.PI * 2);
+        c.fillStyle = 'rgba(110,190,245,' + (1 - spurt).toFixed(2) + ')'; c.fill();
+      }
+    }
+  });
+  /* 이름표는 몸통 바로 아래. 더 내리면 폰에서 용액 칩과 겹친다 */
+  c.strokeStyle = 'rgba(45,110,170,.6)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(58, 26); c.lineTo(34, 62); c.stroke();
+  label(c, 0, 74, '수축포', 'rgba(45,110,170,.95)', 16);
+  c.restore();
+}
+
 /* U자관 — 왼쪽 저농도, 오른쪽 고농도. 시간이 지나며 오른쪽 수면이 높아진다.
    빈 공간(관 속)을 한 경로로 만들고, 그 안에 액체를 채운다. */
 function drawUTube(c, cx, cy, s, t) {
