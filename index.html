@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
 <title>루키랩 정석 세포편</title>
 <style>
@@ -65,7 +65,9 @@ ul,ol{padding-left:1.15em}
 
 #app{position:fixed;inset:0;display:flex;flex-direction:column}
 /* 무대를 크게 보는 동안은 날개를 접는다 — 현미경에서 세포를 눌러 표시할 때 쓴다 */
-#app.big #side{display:none}
+#app.big #side{display:flex;flex:0 0 auto}
+#app.big #main{flex-direction:column}
+#app.big #guide,#app.big #panel{display:none}
 #app.big #stage{flex:1 1 auto !important;height:auto !important;max-height:none;min-height:0}
 /* 조작판도 줄인다. 안 줄이면 무대가 화면의 58 % 밖에 안 되어 크게 본 보람이 없다.
    ⚠ **여기서 퍼센트를 쓰면 안 된다.** 무대 높이가 flex 로 정해져 기준이 없다고 보아
@@ -80,6 +82,7 @@ ul,ol{padding-left:1.15em}
   display:none;align-items:center;gap:5px;
 }
 #bigBtn.on{display:inline-flex}
+#bigBtn{display:inline-flex;min-height:44px}
 #bigBtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
 /* 루키랩과 같은 점무늬 바탕 */
 #app::before{
@@ -810,6 +813,39 @@ table.dat td.l{text-align:left}
   #say .f{width:40px;height:40px}
 }
 
+/* 2026-09-27: 터치 도구의 우선순위와 보조 메뉴 */
+#bar{z-index:30}
+#brand{flex:1 1 auto;overflow:hidden}
+#menu{flex:0 0 auto;align-items:center}
+#moreMenu{position:relative}
+#moreMenu summary{list-style:none;cursor:pointer;min-width:52px;min-height:44px;display:grid;place-items:center;background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:12px;font-size:13px}
+#moreMenu summary::-webkit-details-marker{display:none}
+#moreMenu[open] summary{background:var(--sun)}
+#moreMenu .menuItems{position:absolute;right:0;top:calc(100% + 10px);width:190px;padding:10px;display:grid;gap:8px;background:var(--paper);border:2px solid var(--ink);border-radius:14px;box-shadow:0 8px 24px #18132230}
+#moreMenu:not([open]) .menuItems{display:none}
+#moreMenu .ml{display:inline}
+#moreMenu button{width:100%;justify-content:flex-start;box-shadow:none;border-width:1px}
+#panel .card{border:1px solid #d5d3cc;box-shadow:none;background:#fffdf7}
+#panel .card>h3::before{border:0;width:4px}
+#ctrl>.card{border-width:2px;box-shadow:0 2px 0 #18132218}
+#app.big #navbar{order:0;border-top:2px solid var(--ink);border-bottom:0}
+#bigBtn{font-size:12px;padding:0 10px;box-shadow:0 2px 0 #18132230}
+button:focus-visible,summary:focus-visible,.tool:focus-visible{outline:3px solid #087caf;outline-offset:3px}
+button,summary{touch-action:manipulation}
+@media(max-width:700px){
+  #bar{gap:6px;padding-left:8px;padding-right:8px}
+  #menu{gap:6px}
+  #menu button{min-width:44px;justify-content:center;padding:7px}
+  #moreMenu button{justify-content:flex-start}
+  #score{display:none}
+  #ttl{font-size:14px;min-width:0}
+  #panel{padding:10px}
+  .field{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){
+  #play.kick,#play.shake,#btnNext.go,#guideFace.joy,#guideFace.oops,#score.bump,.card.result .grade.pop{animation:none}
+}
+
 /* ===== 스토리 레이어 스타일 — 루키랩 시리즈 =====
    루키랩의 아래 대사(#talk = 얼굴 + 말풍선)와 결재 도장(.stamp)을 그대로 옮겨 왔다.
    굵은 검은 테두리 + 흐리지 않은 하드 섀도우 + 납작한 색.
@@ -1204,11 +1240,13 @@ table.dat td.l{text-align:left}
       <span id="score" title="점수">0점</span>
     </div>
     <nav id="menu">
+      <button type="button" data-modal="note" title="실험노트" aria-label="실험노트"><span class="mi">✎</span><span class="ml">실험노트</span></button>
+      <details id="moreMenu"><summary aria-label="실험 메뉴">메뉴</summary><div class="menuItems">
       <button type="button" data-modal="about" title="실험 소개" aria-label="실험 소개"><span class="mi">i</span><span class="ml">실험 소개</span></button>
       <button type="button" data-modal="howto" title="사용법" aria-label="사용법"><span class="mi">?</span><span class="ml">사용법</span></button>
-      <button type="button" data-modal="note" title="실험노트" aria-label="실험노트"><span class="mi">✎</span><span class="ml">실험노트</span></button>
       <button type="button" id="btnSnd" title="효과음" aria-label="효과음"><span class="mi">♪</span><span class="ml">효과음</span></button>
       <button type="button" id="btnFull" title="전체화면" aria-label="전체화면"><span class="mi">⛶</span><span class="ml">전체화면</span></button>
+      </div></details>
     </nav>
   </header>
 
@@ -2475,12 +2513,7 @@ var E = {
       id = ev.pointerId;
       try { target.setPointerCapture(id); } catch (e) {}
       ev.preventDefault();
-      /* 손맛 — 누른 자리에 물결이 번지고 아주 작게 딸깍. 무대 캔버스일 때만 */
-      if (target.tagName === 'CANVAS' && fxCv && target.closest && target.closest('#play')) {
-        var pr = fxCv.getBoundingClientRect();
-        ripple(ev.clientX - pr.left, ev.clientY - pr.top);
-        beep('tick');
-      }
+      /* 잡기와 성공 피드백은 각 장면이 유효한 대상을 판정한 뒤 낸다. */
       h.start && h.start(ev);
     }
     function move(ev) { if (ev.pointerId !== id) return; ev.preventDefault(); h.move && h.move(ev); }
@@ -3613,8 +3646,9 @@ var WIPED = 0;
 function bigOn() { var a = $('#app'); return !!(a && a.classList.contains('big')); }
 function bigLabel() {
   var b = $('#bigBtn'); if (!b) return;
-  b.innerHTML = bigOn() ? '<span>⤡</span><span>작게 보기</span>'
-                        : '<span>⤢</span><span>크게 보기</span>';
+  b.setAttribute('aria-pressed', String(bigOn()));
+  b.innerHTML = bigOn() ? '<span>⤡</span><span>설명 함께</span>'
+                        : '<span>⤢</span><span>실험 집중</span>';
 }
 function bigSet(on) {
   var a = $('#app'); if (!a) return;
@@ -3626,7 +3660,7 @@ function bigSet(on) {
   setTimeout(function () { refitAll(); repaint(); }, 220);
 }
 function bigMake(play) {
-  var b = el('button', { type: 'button', id: 'bigBtn' });
+  var b = el('button', { type: 'button', id: 'bigBtn', cls: 'on' });
   b.addEventListener('click', function () { bigSet(!bigOn()); });
   play.appendChild(b);
   bigSet(false);          /* 장면이 바뀌면 늘 작은 상태로 돌아온다 */
@@ -3655,6 +3689,21 @@ var VLAB = {
     if (WIPED) setTimeout(function () { E.toast('처음 상태로 열었습니다', 'good'); }, 400);
 
     $('#btnPrev').addEventListener('click', function () { go(idx - 1); });
+    var moreMenu = $('#moreMenu');
+    if (moreMenu && !moreMenu.dataset.bound) {
+      moreMenu.dataset.bound = '1';
+      moreMenu.addEventListener('click', function (ev) {
+        if (ev.target.closest('button')) moreMenu.open = false;
+      });
+      document.addEventListener('pointerdown', function (ev) {
+        if (!moreMenu.contains(ev.target)) moreMenu.open = false;
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && moreMenu.open) {
+          moreMenu.open = false; moreMenu.querySelector('summary').focus();
+        }
+      });
+    }
     $('#btnNext').addEventListener('click', function () {
       if (!nextOK && QZ.pend) { qzOpen(); return; }
       if (!nextOK) { E.toast(nextMsg || '아직 남은 조작이 있어요', 'bad'); return; }
@@ -8289,14 +8338,42 @@ function centrifugeScene(cfg) {
           }
           if (ph !== 'spin' || running()) return;
           if (E.dist(p.x, p.y, M.btn.x, M.btn.y) < M.btn.r + 8) { startSpin(); return; }
-          if (E.dist(p.x, p.y, M.g.x, M.g.y) < M.dR + 16) { st.drag = 'g'; setDial('g', p); return; }
-          if (E.dist(p.x, p.y, M.t.x, M.t.y) < M.dR + 16) { st.drag = 't'; setDial('t', p); return; }
+          if (E.dist(p.x, p.y, M.g.x, M.g.y) < M.dR + 16) { beginDial('g', p); return; }
+          if (E.dist(p.x, p.y, M.t.x, M.t.y) < M.dR + 16) { beginDial('t', p); return; }
         },
         move: function (ev) { if (st.drag) setDial(st.drag, cv.pt(ev)); },
-        end: function () { st.drag = null; }
+        end: function (ev) {
+          /* 눈금 탭도 지원한다. 잡는 순간에는 유지하고 손을 뗄 때 적용한다. */
+          if (st.drag && !st.dialMoved && ev.type !== 'pointercancel') {
+            var p = cv.pt(ev), k = st.drag, d = k === 'g' ? M.g : M.t;
+            if (E.dist(p.x, p.y, d.x, d.y) >= M.dR * .25) {
+              var v = dialIdx(p, d);
+              if (k === 'g') st.gi = v; else st.ti = v;
+              E.beep('tick'); E.buzz(6); sync();
+            }
+          }
+          st.drag = null;
+        }
       });
+      function beginDial(k, p) {
+        var d = k === 'g' ? M.g : M.t;
+        st.drag = k;
+        st.dialMoved = false;
+        st.dialStart = p;
+        st.dialAngle = Math.atan2(p.y - d.y, p.x - d.x);
+        st.dialValue = k === 'g' ? st.gi : st.ti;
+      }
       function setDial(k, p) {
-        var d = k === 'g' ? M.g : M.t, v = dialIdx(p, d);
+        var d = k === 'g' ? M.g : M.t;
+        if (E.dist(p.x, p.y, st.dialStart.x, st.dialStart.y) > 6) st.dialMoved = true;
+        if (E.dist(p.x, p.y, d.x, d.y) < M.dR * .25) return;
+        var angle = Math.atan2(p.y - d.y, p.x - d.x);
+        var delta = angle - st.dialAngle;
+        if (delta > Math.PI) delta -= Math.PI * 2;
+        if (delta < -Math.PI) delta += Math.PI * 2;
+        st.dialAngle = angle;
+        st.dialValue = E.clamp(st.dialValue + delta / (Math.PI * 1.5 / 4), 0, 4);
+        var v = Math.round(st.dialValue);
         if (k === 'g') { if (v !== st.gi) { E.beep('tick'); E.buzz(6); } st.gi = v; }
         else { if (v !== st.ti) { E.beep('tick'); E.buzz(6); } st.ti = v; }
         sync();
