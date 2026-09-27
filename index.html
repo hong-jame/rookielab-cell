@@ -3656,8 +3656,10 @@ function bigSet(on) {
   bigLabel();
   beep('tick');
   /* 무대 크기가 바뀌었으니 캔버스를 다시 재게 한다. 안 하면 누르는 자리가 어긋난다 */
-  setTimeout(function () { refitAll(); repaint(); }, 30);
-  setTimeout(function () { refitAll(); repaint(); }, 220);
+  /* refitAll 이 곧 E.repaint 다. 없는 repaint() 를 같이 불러 장면마다 콘솔에
+     ReferenceError 가 났다(화면은 멀쩡해 눈에 안 띄었다) */
+  setTimeout(refitAll, 30);
+  setTimeout(refitAll, 220);
 }
 function bigMake(play) {
   var b = el('button', { type: 'button', id: 'bigBtn', cls: 'on' });
